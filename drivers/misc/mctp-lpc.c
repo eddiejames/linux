@@ -255,9 +255,14 @@ static ssize_t mctp_lpc_write(struct file *filp, const char __user *buf,
 
 	regmap_read(priv->map, LPC_STR4, &str);
 	dev_dbg(dev, "Triggering SerIRQ (current str=0x%x)\n", str);
-	/* Trigger Host IRQ */
-	regmap_update_bits(priv->map, LPC_HICRC, LPC_KCS4_IRQ_HOST,
-			   LPC_KCS4_IRQ_HOST);
+
+	/*
+	 * Trigger Host IRQ on ODR write. Do this after any STR write in case
+	 * we need to write ODR to indicate an STR update (which we do).
+	 */
+	if (*ppos == 0)
+		regmap_update_bits(priv->map, LPC_HICRC, LPC_KCS4_IRQ_HOST,
+				   LPC_KCS4_IRQ_HOST);
 
 	return count;
 }
