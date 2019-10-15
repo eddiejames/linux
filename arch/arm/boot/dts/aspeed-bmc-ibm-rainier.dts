@@ -609,3 +609,7 @@
 		spi-max-frequency = <100000000>;
 	};
 };
+
+&xdma {
+	status = "okay";
+};
