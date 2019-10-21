@@ -19,6 +19,12 @@
 #define OCC_EXT_STAT_DVFS_POWER		BIT(6)
 #define OCC_EXT_STAT_MEM_THROTTLE	BIT(5)
 #define OCC_EXT_STAT_QUICK_DROP		BIT(4)
+#define OCC_EXT_STAT_DVFS_VDD_OT	BIT(3)
+#define OCC_EXT_STAT_GPU_THROTTLE	(BIT(2) | BIT(1) | BIT(0))
+
+/* OCC idle power saver status register */
+#define OCC_IPS_STAT_ACTIVE		BIT(1)
+#define OCC_IPS_STAT_ENABLED		BIT(0)
 
 static ssize_t occ_sysfs_show(struct device *dev,
 			      struct device_attribute *attr, char *buf)
@@ -55,13 +61,25 @@ static ssize_t occ_sysfs_show(struct device *dev,
 		val = !!(header->ext_status & OCC_EXT_STAT_QUICK_DROP);
 		break;
 	case 6:
-		val = header->occ_state;
+		val = !!(header->ext_status & OCC_EXT_STAT_DVFS_VDD_OT);
 		break;
 	case 7:
+		val = header->ext_status & OCC_EXT_STAT_GPU_THROTTLE;
+		break;
+	case 8:
+		val = header->occ_state;
+		break;
+	case 9:
 		if (header->status & OCC_STAT_MASTER)
 			val = hweight8(header->occs_present);
 		else
 			val = 1;
+		break;
+	case 10:
+		val = !!(header->ips_status & OCC_IPS_STAT_ACTIVE);
+		break;
+	case 11:
+		val = !!(header->ips_status & OCC_IPS_STAT_ENABLED);
 		break;
 	default:
 		return -EINVAL;
@@ -86,8 +104,13 @@ static SENSOR_DEVICE_ATTR(occ_dvfs_overtemp, 0444, occ_sysfs_show, NULL, 2);
 static SENSOR_DEVICE_ATTR(occ_dvfs_power, 0444, occ_sysfs_show, NULL, 3);
 static SENSOR_DEVICE_ATTR(occ_mem_throttle, 0444, occ_sysfs_show, NULL, 4);
 static SENSOR_DEVICE_ATTR(occ_quick_pwr_drop, 0444, occ_sysfs_show, NULL, 5);
-static SENSOR_DEVICE_ATTR(occ_state, 0444, occ_sysfs_show, NULL, 6);
-static SENSOR_DEVICE_ATTR(occs_present, 0444, occ_sysfs_show, NULL, 7);
+static SENSOR_DEVICE_ATTR(occ_dvfs_vdd_overtemp, 0444, occ_sysfs_show, NULL,
+			  6);
+static SENSOR_DEVICE_ATTR(occ_gpu_throttle, 0444, occ_sysfs_show, NULL, 7);
+static SENSOR_DEVICE_ATTR(occ_state, 0444, occ_sysfs_show, NULL, 8);
+static SENSOR_DEVICE_ATTR(occs_present, 0444, occ_sysfs_show, NULL, 9);
+static SENSOR_DEVICE_ATTR(occ_ips_active, 0444, occ_sysfs_show, NULL, 10);
+static SENSOR_DEVICE_ATTR(occ_ips_enabled, 0444, occ_sysfs_show, NULL, 11);
 static DEVICE_ATTR_RO(occ_error);
 
 static struct attribute *occ_attributes[] = {
@@ -97,8 +120,12 @@ static struct attribute *occ_attributes[] = {
 	&sensor_dev_attr_occ_dvfs_power.dev_attr.attr,
 	&sensor_dev_attr_occ_mem_throttle.dev_attr.attr,
 	&sensor_dev_attr_occ_quick_pwr_drop.dev_attr.attr,
+	&sensor_dev_attr_occ_dvfs_vdd_overtemp.dev_attr.attr,
+	&sensor_dev_attr_occ_gpu_throttle.dev_attr.attr,
 	&sensor_dev_attr_occ_state.dev_attr.attr,
 	&sensor_dev_attr_occs_present.dev_attr.attr,
+	&sensor_dev_attr_occ_ips_active.dev_attr.attr,
+	&sensor_dev_attr_occ_ips_enabled.dev_attr.attr,
 	&dev_attr_occ_error.attr,
 	NULL
 };
@@ -156,9 +183,33 @@ void occ_sysfs_poll_done(struct occ *occ)
 		sysfs_notify(&occ->bus_dev->kobj, NULL, name);
 	}
 
+	if ((header->ext_status & OCC_EXT_STAT_DVFS_VDD_OT) !=
+	    (occ->prev_ext_stat & OCC_EXT_STAT_DVFS_VDD_OT)) {
+		name = sensor_dev_attr_occ_dvfs_vdd_overtemp.dev_attr.attr.name;
+		sysfs_notify(&occ->bus_dev->kobj, NULL, name);
+	}
+
+	if ((header->ext_status & OCC_EXT_STAT_GPU_THROTTLE) !=
+	    (occ->prev_ext_stat & OCC_EXT_STAT_GPU_THROTTLE)) {
+		name = sensor_dev_attr_occ_gpu_throttle.dev_attr.attr.name;
+		sysfs_notify(&occ->bus_dev->kobj, NULL, name);
+	}
+
 	if ((header->status & OCC_STAT_MASTER) &&
 	    header->occs_present != occ->prev_occs_present) {
 		name = sensor_dev_attr_occs_present.dev_attr.attr.name;
+		sysfs_notify(&occ->bus_dev->kobj, NULL, name);
+	}
+
+	if ((header->ips_status & OCC_IPS_STAT_ACTIVE) !=
+	    (occ->prev_ips_stat & OCC_IPS_STAT_ACTIVE)) {
+		name = sensor_dev_attr_occ_ips_active.dev_attr.attr.name;
+		sysfs_notify(&occ->bus_dev->kobj, NULL, name);
+	}
+
+	if ((header->ips_status & OCC_IPS_STAT_ENABLED) !=
+	    (occ->prev_ips_stat & OCC_IPS_STAT_ENABLED)) {
+		name = sensor_dev_attr_occ_ips_enabled.dev_attr.attr.name;
 		sysfs_notify(&occ->bus_dev->kobj, NULL, name);
 	}
 
@@ -174,6 +225,7 @@ done:
 	occ->prev_stat = header->status;
 	occ->prev_ext_stat = header->ext_status;
 	occ->prev_occs_present = header->occs_present;
+	occ->prev_ips_stat = header->ips_status;
 }
 
 int occ_setup_sysfs(struct occ *occ)

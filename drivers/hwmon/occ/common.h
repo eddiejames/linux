@@ -49,7 +49,8 @@ struct occ_poll_response_header {
 	u8 error_log_id;
 	__be32 error_log_start_address;
 	__be16 error_log_length;
-	u16 reserved;
+	u8 error_log_source;
+	u8 gpu_config;
 	u8 occ_code_level[16];
 	u8 eye_catcher[6];
 	u8 num_sensor_data_blocks;
@@ -120,6 +121,7 @@ struct occ {
 	u8 prev_stat;
 	u8 prev_ext_stat;
 	u8 prev_occs_present;
+	u8 prev_ips_stat;
 };
 
 int occ_setup(struct occ *occ, const char *name);
