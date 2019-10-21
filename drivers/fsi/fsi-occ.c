@@ -14,6 +14,7 @@
 #include <linux/mutex.h>
 #include <linux/fsi-occ.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -27,6 +28,9 @@
 #define OCC_SRAM_CMD_ADDR	0xFFFBE000
 #define OCC_SRAM_RSP_ADDR	0xFFFBF000
 
+#define OCC_P10_SRAM_CMD_ADDR	0xFFFFD000
+#define OCC_P10_SRAM_RSP_ADDR	0xFFFFE000
+
 /*
  * Assume we don't have much FFDC, if we do we'll overflow and
  * fail the command. This needs to be big enough for simple
@@ -37,11 +41,15 @@
 #define OCC_TIMEOUT_MS		1000
 #define OCC_CMD_IN_PRG_WAIT_MS	50
 
+enum versions { occ_p9, occ_p10 };
+
 struct occ {
 	struct device *dev;
 	struct device *sbefifo;
 	char name[32];
 	int idx;
+	u32 sram_cmd_addr;
+	u32 sram_rsp_addr;
 	struct miscdevice mdev;
 	struct mutex occ_lock;
 };
@@ -429,7 +437,7 @@ int fsi_occ_submit(struct device *dev, const void *request, size_t req_len,
 
 	/* Extract the seq_no from the command (first byte) */
 	seq_no = *(const u8 *)request;
-	rc = occ_putsram(occ, OCC_SRAM_CMD_ADDR, request, req_len);
+	rc = occ_putsram(occ, occ->sram_cmd_addr, request, req_len);
 	if (rc)
 		goto done;
 
@@ -440,7 +448,7 @@ int fsi_occ_submit(struct device *dev, const void *request, size_t req_len,
 	/* Read occ response header */
 	start = jiffies;
 	do {
-		rc = occ_getsram(occ, OCC_SRAM_RSP_ADDR, resp, 8);
+		rc = occ_getsram(occ, occ->sram_rsp_addr, resp, 8);
 		if (rc)
 			goto done;
 
@@ -476,7 +484,7 @@ int fsi_occ_submit(struct device *dev, const void *request, size_t req_len,
 	/* Grab the rest */
 	if (resp_data_length > 1) {
 		/* already got 3 bytes resp, also need 2 bytes checksum */
-		rc = occ_getsram(occ, OCC_SRAM_RSP_ADDR + 8,
+		rc = occ_getsram(occ, occ->sram_rsp_addr + 8,
 				 &resp->data[3], resp_data_length - 1);
 		if (rc)
 			goto done;
@@ -508,6 +516,7 @@ static int occ_probe(struct platform_device *pdev)
 	struct occ *occ;
 	struct platform_device *hwmon_dev;
 	struct device *dev = &pdev->dev;
+	const void *md =  of_device_get_match_data(dev);
 	struct platform_device_info hwmon_dev_info = {
 		.parent = dev,
 		.name = "occ-hwmon",
@@ -516,6 +525,18 @@ static int occ_probe(struct platform_device *pdev)
 	occ = devm_kzalloc(dev, sizeof(*occ), GFP_KERNEL);
 	if (!occ)
 		return -ENOMEM;
+
+	switch ((enum versions)md) {
+	default:
+	case occ_p9:
+		occ->sram_cmd_addr = OCC_SRAM_CMD_ADDR;
+		occ->sram_rsp_addr = OCC_SRAM_RSP_ADDR;
+		break;
+	case occ_p10:
+		occ->sram_cmd_addr = OCC_P10_SRAM_CMD_ADDR;
+		occ->sram_rsp_addr = OCC_P10_SRAM_RSP_ADDR;
+		break;
+	}
 
 	occ->dev = dev;
 	occ->sbefifo = dev->parent;
@@ -575,7 +596,14 @@ static int occ_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id occ_match[] = {
-	{ .compatible = "ibm,p9-occ" },
+	{
+		.compatible = "ibm,p9-occ",
+		.data = (void *)occ_p9
+	},
+	{
+		.compatible = "ibm,p10-occ",
+		.data = (void *)occ_p10
+	},
 	{ },
 };
 
