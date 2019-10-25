@@ -799,3 +799,7 @@
 	pinctrl-0 = <&pinctrl_lpc_default>,
 		    <&pinctrl_lsirq_default>;
 };
+
+&xdma {
+	status = "okay";
+};
