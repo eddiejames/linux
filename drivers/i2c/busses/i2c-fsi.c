@@ -27,7 +27,7 @@
 
 #define FSI_ENGID_I2C		0x7
 
-#define I2C_DEFAULT_CLK_DIV	6
+#define I2C_DEFAULT_CLK_DIV	3
 
 /* i2c registers */
 #define I2C_FSI_FIFO		0x00
@@ -592,13 +592,10 @@ static int fsi_i2c_wait(struct fsi_i2c_port *port, struct i2c_msg *msg,
 			/* cmd complete and all data xfrd */
 			if (rc == msg->len)
 				return 0;
-
-			/* need to xfr more data, but maybe don't need wait */
-			continue;
 		}
-
-		usleep_range(I2C_CMD_SLEEP_MIN_US, I2C_CMD_SLEEP_MAX_US);
 	} while (time_after(start + timeout, jiffies));
+
+	fsi_i2c_abort(port, 0);
 
 	return -ETIMEDOUT;
 }
