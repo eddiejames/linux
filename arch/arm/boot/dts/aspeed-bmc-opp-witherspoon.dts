@@ -710,4 +710,9 @@
 	memory-region = <&video_engine_memory>;
 };
 
+&xdma {
+	status = "okay";
+	vga-mem = <0x9f000000 0x01000000>;
+};
+
 #include "ibm-power9-dual.dtsi"
