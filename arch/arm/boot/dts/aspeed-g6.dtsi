@@ -3,6 +3,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/ast2600-clock.h>
+#include <dt-bindings/interrupt-controller/aspeed-scu-ic.h>
 
 / {
 	model = "Aspeed BMC";
@@ -245,6 +246,11 @@
 			status = "disabled";
 		};
 
+		sdmc: sdram@1e6e0000 {
+			compatible = "syscon";
+			reg = <0x1e6e0000 0xb8>;
+		};
+
 		apb {
 			compatible = "simple-bus";
 			#address-cells = <1>;
@@ -289,6 +295,19 @@
 				reg = <0x1e6e2524 0x4>;
 				period = <1>;
 				quality = <100>;
+			};
+
+			xdma: xdma@1e6e7000 {
+				compatible = "aspeed,ast2600-xdma";
+				reg = <0x1e6e7000 0x100>;
+				clocks = <&syscon ASPEED_CLK_GATE_BCLK>;
+				resets = <&syscon ASPEED_RESET_DEV_XDMA>;
+				interrupts-extended = <&gic GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>,
+						      <&scu_ic0 ASPEED_AST2600_SCU_IC0_PCIE_PERST_LO_TO_HI>;
+				pcie-device = "bmc";
+				scu = <&syscon>;
+				sdmc = <&sdmc>;
+				status = "disabled";
 			};
 
 			gpio0: gpio@1e780000 {
