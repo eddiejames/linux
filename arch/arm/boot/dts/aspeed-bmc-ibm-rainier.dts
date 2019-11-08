@@ -609,3 +609,8 @@
 		spi-max-frequency = <100000000>;
 	};
 };
+
+&xdma {
+	status = "okay";
+	vga-mem = <0xbf800000 0x00800000>;
+};
