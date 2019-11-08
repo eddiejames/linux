@@ -217,8 +217,9 @@
 			syscon: syscon@1e6e2000 {
 				compatible = "aspeed,ast2500-scu", "syscon", "simple-mfd";
 				reg = <0x1e6e2000 0x1a8>;
+				ranges = <0 0x1e6e2000 0x1a8>;
 				#address-cells = <1>;
-				#size-cells = <0>;
+				#size-cells = <1>;
 				#clock-cells = <1>;
 				#reset-cells = <1>;
 
@@ -235,6 +236,13 @@
 
 				vga_scratch: scratch {
 					compatible = "aspeed,bmc-misc";
+				};
+
+				scu_ic: interrupt-controller@18 {
+					#interrupt-cells = <1>;
+					compatible = "aspeed,ast2500-scu-ic";
+					interrupts = <21>;
+					interrupt-controller;
 				};
 			};
 
