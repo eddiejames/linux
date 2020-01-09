@@ -710,4 +710,10 @@
 	memory-region = <&video_engine_memory>;
 };
 
+&xdma {
+	status = "okay";
+	/* 512M DRAM with 16M VRAM which is reserved at the top. */
+	memory = <0x9f000000 0x01000000>;
+};
+
 #include "ibm-power9-dual.dtsi"
