@@ -800,3 +800,9 @@
 	pinctrl-0 = <&pinctrl_lpc_default>,
 		    <&pinctrl_lsirq_default>;
 };
+
+&xdma {
+	status = "okay";
+	/* 1G DRAM with 8M VRAM which is reserved at the top. */
+	memory = <0xbf800000 0x00800000>;
+};
