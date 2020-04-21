@@ -66,8 +66,9 @@ static const u32 fsi_base = 0xa0000000;
 #define STATUS_TIMEOUT		BIT(4)
 
 /* OPB_IRQ_MASK */
-#define OPB1_XFER_ACK_EN BIT(17)
-#define OPB0_XFER_ACK_EN BIT(16)
+#define OPB_IRQ_SLAVE		GENMASK(25, 18)
+#define OPB_IRQ_OPB1_XFER_ACK	BIT(17)
+#define OPB_IRQ_OPB0_XFER_ACK	BIT(16)
 
 /* OPB_RW */
 #define CMD_READ	BIT(0)
@@ -106,8 +107,8 @@ static int __opb_write(struct fsi_master_aspeed *aspeed, u32 addr,
 	writel(0x1, base + OPB_TRIGGER);
 
 	ret = readl_poll_timeout(base + OPB_IRQ_STATUS, reg,
-				(reg & OPB0_XFER_ACK_EN) != 0,
-				0, OPB_POLL_TIMEOUT);
+				 (reg & OPB_IRQ_OPB0_XFER_ACK) != 0,
+				 0, OPB_POLL_TIMEOUT);
 
 	status = readl(base + OPB0_STATUS);
 
@@ -153,8 +154,8 @@ static int __opb_read(struct fsi_master_aspeed *aspeed, uint32_t addr,
 	writel(0x1, base + OPB_TRIGGER);
 
 	ret = readl_poll_timeout(base + OPB_IRQ_STATUS, reg,
-			   (reg & OPB0_XFER_ACK_EN) != 0,
-			   0, OPB_POLL_TIMEOUT);
+				 (reg & OPB_IRQ_OPB0_XFER_ACK) != 0,
+				 0, OPB_POLL_TIMEOUT);
 
 	status = readl(base + OPB0_STATUS);
 
@@ -519,8 +520,8 @@ static int fsi_master_aspeed_probe(struct platform_device *pdev)
 	}
 
 	writel(0x1, aspeed->base + OPB_CLK_SYNC);
-	writel(OPB1_XFER_ACK_EN | OPB0_XFER_ACK_EN,
-			aspeed->base + OPB_IRQ_MASK);
+	writel(OPB_IRQ_SLAVE | OPB_IRQ_OPB1_XFER_ACK | OPB_IRQ_OPB0_XFER_ACK,
+	       aspeed->base + OPB_IRQ_MASK);
 
 	/* TODO: determine an appropriate value */
 	writel(0x10, aspeed->base + OPB_RETRY_COUNTER);
