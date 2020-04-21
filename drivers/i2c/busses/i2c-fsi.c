@@ -88,6 +88,17 @@
 #define I2C_INT_BUSY		BIT(6)
 #define I2C_INT_IDLE		BIT(5)
 
+#define I2C_INT_ERR		(I2C_INT_INV_CMD |			\
+				 I2C_INT_PARITY |			\
+				 I2C_INT_BE_OVERRUN |			\
+				 I2C_INT_BE_ACCESS |			\
+				 I2C_INT_LOST_ARB |			\
+				 I2C_INT_NACK |				\
+				 I2C_INT_STOP_ERR)
+#define I2C_INT_ANY_RESP	(I2C_INT_ERR |				\
+				 I2C_INT_DAT_REQ |			\
+				 I2C_INT_CMD_COMP)
+
 /* status register */
 #define I2C_STAT_INV_CMD	BIT(31)
 #define I2C_STAT_PARITY		BIT(30)
@@ -187,9 +198,8 @@ static int fsi_i2c_dev_init(struct fsi_i2c_master *i2c)
 {
 	int rc;
 	u32 mode = I2C_MODE_ENHANCED, extended_status, watermark;
-	u32 interrupt = 0;
+	u32 interrupt = I2C_INT_ANY_RESP;
 
-	/* since we use polling, disable interrupts */
 	rc = fsi_i2c_write_reg(i2c->fsi, I2C_FSI_INT_MASK, &interrupt);
 	if (rc)
 		return rc;
