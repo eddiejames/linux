@@ -394,6 +394,7 @@ static int aspeed_master_init(struct fsi_master_aspeed *aspeed)
 	opb_writel(aspeed, ctrl_base + FSI_MECTRL, reg);
 
 	reg = cpu_to_be32(FSI_MMODE_ECRC | FSI_MMODE_EPC | FSI_MMODE_RELA
+			| FSI_MMODE_EIP
 			| fsi_mmode_crs0(aspeed_fsi_divisor)
 			| fsi_mmode_crs1(aspeed_fsi_divisor)
 			| FSI_MMODE_P8_TO_LSB);
