@@ -50,6 +50,7 @@ static const int engine_page_size = 0x400;
 #define FSI_SMODE		0x0	/* R/W: Mode register */
 #define FSI_SISC		0x8	/* R/W: Interrupt condition */
 #define FSI_SSTAT		0x14	/* R  : Slave status */
+#define FSI_SI1M		0x18	/* R/W: Interrupt 1 mask */
 #define FSI_LLMODE		0x100	/* R/W: Link layer mode register */
 
 /*
@@ -65,6 +66,12 @@ static const int engine_page_size = 0x400;
 #define FSI_SMODE_SD_MASK	0xf		/* Send delay mask */
 #define FSI_SMODE_LBCRR_SHIFT	8		/* Clk ratio shift */
 #define FSI_SMODE_LBCRR_MASK	0xf		/* Clk ratio mask */
+
+#define FSI_SI1M_SLAVE		0x80000000
+#define FSI_SI1M_SHIFT		0x40000000
+#define FSI_SI1M_FSI2PIB	0x20000000
+#define FSI_SI1M_SCRATCH	0x10000000
+#define FSI_SI1M_I2CM		0x08000000
 
 /*
  * LLMODE fields
@@ -981,7 +988,7 @@ static int fsi_slave_init(struct fsi_master *master, int link, uint8_t id)
 	uint32_t cfam_id;
 	struct fsi_slave *slave;
 	uint8_t crc;
-	__be32 data, llmode;
+	__be32 data, llmode, si1m;
 	int rc;
 
 	/* Currently, we only support single slaves on a link, and use the
@@ -1059,6 +1066,12 @@ static int fsi_slave_init(struct fsi_master *master, int link, uint8_t id)
 				link, id, rc);
 		goto err_free;
 	}
+
+	si1m = cpu_to_be32(FSI_SI1M_I2CM);
+	rc = fsi_master_write(master, link, id, FSI_SLAVE_BASE + FSI_SI1M,
+			      &si1m, sizeof(si1m));
+	if (rc)
+		goto err_free;
 
 	/* Allocate a minor in the FSI space */
 	rc = __fsi_get_new_minor(slave, fsi_dev_cfam, &slave->dev.devt,
