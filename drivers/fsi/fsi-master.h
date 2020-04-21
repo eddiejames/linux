@@ -27,6 +27,11 @@
 #define FSI_MLEVP0		0x18		/* R: plug detect */
 #define FSI_MSENP0		0x18		/* S: Set enable */
 #define FSI_MCENP0		0x20		/* C: Clear enable */
+
+#define FSI_MSIEP0		0x30		/* R/W: Slave interrupt enable/disable */
+#define FSI_MSSIEP0		0x50		/* S: Slave interrupt enable */
+#define FSI_MCSIEP0		0x70		/* W: Slave interrupt disable */
+
 #define FSI_MAEB		0x70		/* R: Error address */
 #define FSI_MVER		0x74		/* R: master version/type */
 #define FSI_MSTAP0		0xd0		/* R: Port status */

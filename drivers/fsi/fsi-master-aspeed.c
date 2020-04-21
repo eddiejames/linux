@@ -324,6 +324,7 @@ static int aspeed_master_link_enable(struct fsi_master *master, int link)
 
 	mdelay(FSI_LINK_ENABLE_SETUP_TIME);
 
+	/* Port enable */
 	ret = opb_readl(aspeed, ctrl_base + FSI_MENP0 + (4 * idx), &result);
 	if (ret)
 		return ret;
@@ -332,6 +333,11 @@ static int aspeed_master_link_enable(struct fsi_master *master, int link)
 		dev_err(aspeed->dev, "%s failed: %08x\n", __func__, result);
 		return -EIO;
 	}
+
+	/* Slave interrupt enable */
+	ret = opb_writel(aspeed, ctrl_base + FSI_MSSIEP0 + (4 * idx), reg);
+	if (ret)
+		return ret;
 
 	return 0;
 }
