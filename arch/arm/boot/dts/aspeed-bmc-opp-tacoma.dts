@@ -185,6 +185,8 @@
 
 &emmc_controller {
 	status = "okay";
+	aspeed,input-phase = <0x7>;
+	aspeed,output-phase = <0x1f>;
 };
 
 &emmc {
