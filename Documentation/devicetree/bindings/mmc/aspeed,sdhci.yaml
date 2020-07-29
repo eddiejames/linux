@@ -37,6 +37,14 @@ properties:
   clocks:
     maxItems: 1
     description: The SD/SDIO controller clock gate
+  "aspeed,input-phase":
+    $ref: '/schemas/types.yaml#/definitions/uint32'
+    description:
+      The input clock phase delay value.
+  "aspeed,output-phase":
+    $ref: '/schemas/types.yaml#/definitions/uint32'
+    description:
+      The output clock phase delay value.
 
 patternProperties:
   "^sdhci@[0-9a-f]+$":
