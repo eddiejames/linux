@@ -38,6 +38,15 @@
 #define SCOM_STATUS_PIB_RESP_MASK	0x00007000
 #define SCOM_STATUS_PIB_RESP_SHIFT	12
 
+/* Values the SCOM_STATUS_PIB_RESP_MASK can take */
+#define SCOM_PIB_ERR_XSCOM_BLOCKED	0x00004000
+#define SCOM_PIB_ERR_CHIPLET_OFFLINE	0x00002000
+#define SCOM_PIB_ERR_PARTIAL_GOOD	0x00006000
+#define SCOM_PIB_ERR_INVALID_ADDR	0x00001000
+#define SCOM_PIB_ERR_CLOCK		0x00005000
+#define SCOM_PIB_ERR_HANDSHAKE		0x00003000
+#define SCOM_PIB_ERR_TIMEOUT		0x00007000
+
 #define SCOM_STATUS_ANY_ERR		(SCOM_STATUS_PROTECTION | \
 					 SCOM_STATUS_PARITY |	  \
 					 SCOM_STATUS_PIB_ABORT | \
@@ -250,6 +259,15 @@ static int handle_fsi2pib_status(struct scom_device *scom, uint32_t status)
 	/* Return -EBUSY on PIB abort to force a retry */
 	if (status & SCOM_STATUS_PIB_ABORT)
 		return -EBUSY;
+
+	if (status & SCOM_PIB_ERR_TIMEOUT) {
+		dev_dbg(&scom->dev, "PIB timeout, recovering\n");
+		fsi_device_write(scom->fsi_dev, SCOM_FSI2PIB_RESET_REG,
+				 &dummy, sizeof(uint32_t));
+		/* Return -EBUSY to force a retry */
+		return -EBUSY;
+	}
+
 	return 0;
 }
 
