@@ -2,6 +2,7 @@
 /* Copyright (C) 2019 ASPEED Technology Inc. */
 /* Copyright (C) 2019 IBM Corp. */
 
+#include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -16,9 +17,14 @@
 
 #include "sdhci-pltfm.h"
 
-#define ASPEED_SDC_INFO		0x00
-#define   ASPEED_SDC_S1MMC8	BIT(25)
-#define   ASPEED_SDC_S0MMC8	BIT(24)
+#define ASPEED_SDC_INFO			0x00
+#define   ASPEED_SDC_S1MMC8		BIT(25)
+#define   ASPEED_SDC_S0MMC8		BIT(24)
+#define ASPEED_SDC_PHASE		0xf4
+#define   ASPEED_SDC_PHASE_IN		GENMASK(20, 16)
+#define   ASPEED_SDC_PHASE_OUT		GENMASK(7, 3)
+#define   ASPEED_SDC_PHASE_IN_EN	BIT(2)
+#define   ASPEED_SDC_PHASE_OUT_EN	GENMASK(1, 0)
 
 struct aspeed_sdc {
 	struct clk *clk;
@@ -247,6 +253,55 @@ static struct platform_driver aspeed_sdhci_driver = {
 	.remove		= aspeed_sdhci_remove,
 };
 
+static int aspeed_sdc_configure_of(struct platform_device *pdev,
+				   struct aspeed_sdc *sdc)
+{
+	u32 phase, iphase, ophase;
+	struct device_node *np;
+	struct device *dev;
+	int ret;
+
+	dev = &pdev->dev;
+	np = dev->of_node;
+	phase = 0;
+
+	ret = of_property_read_u32(np, "aspeed,input-phase", &iphase);
+	if (ret < 0) {
+		phase |= FIELD_PREP(ASPEED_SDC_PHASE_IN, 0);
+		phase |= FIELD_PREP(ASPEED_SDC_PHASE_IN_EN, 0);
+		dev_dbg(dev, "Input phase configuration disabled");
+	} else if (iphase >= (1 << 5)) {
+		dev_err(dev,
+			"Input phase value exceeds field range (5 bits): %u",
+			iphase);
+		return -ERANGE;
+	} else {
+		phase |= FIELD_PREP(ASPEED_SDC_PHASE_IN, iphase);
+		phase |= FIELD_PREP(ASPEED_SDC_PHASE_IN_EN, 1);
+		dev_info(dev, "Input phase relationship: %u", iphase);
+	}
+
+	ret = of_property_read_u32(np, "aspeed,output-phase", &ophase);
+	if (ret < 0) {
+		phase |= FIELD_PREP(ASPEED_SDC_PHASE_OUT, 0);
+		phase |= FIELD_PREP(ASPEED_SDC_PHASE_OUT_EN, 0);
+		dev_dbg(dev, "Output phase configuration disabled");
+	} else if (ophase >= (1 << 5)) {
+		dev_err(dev,
+			"Output phase value exceeds field range (5 bits): %u",
+			iphase);
+		return -ERANGE;
+	} else {
+		phase |= FIELD_PREP(ASPEED_SDC_PHASE_OUT, ophase);
+		phase |= FIELD_PREP(ASPEED_SDC_PHASE_OUT_EN, 3);
+		dev_info(dev, "Output phase relationship: %u", ophase);
+	}
+
+	writel(phase, sdc->regs + ASPEED_SDC_PHASE);
+
+	return 0;
+}
+
 static int aspeed_sdc_probe(struct platform_device *pdev)
 
 {
@@ -276,6 +331,10 @@ static int aspeed_sdc_probe(struct platform_device *pdev)
 		ret = PTR_ERR(sdc->regs);
 		goto err_clk;
 	}
+
+	ret = aspeed_sdc_configure_of(pdev, sdc);
+	if (ret)
+		goto err_clk;
 
 	dev_set_drvdata(&pdev->dev, sdc);
 
