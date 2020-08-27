@@ -398,6 +398,7 @@ static int max31785_of_fan_config(struct i2c_client *client,
 	u32 page;
 	u32 uval;
 	int ret;
+	int i;
 
 	if (!of_device_is_compatible(child, "pmbus-fan"))
 		return 0;
@@ -574,10 +575,24 @@ static int max31785_of_fan_config(struct i2c_client *client,
 	if (ret < 0)
 		return ret;
 
-	ret = max31785_i2c_smbus_write_byte_data(client, PMBUS_FAN_CONFIG_12,
-						 pb_cfg);
-	if (ret < 0)
-		return ret;
+	for (i = 0; i < 2; i++) {
+		ret = max31785_i2c_smbus_write_byte_data(client,
+							 PMBUS_FAN_CONFIG_12,
+							 pb_cfg);
+		if (ret < 0)
+			continue;
+
+		ret = max31785_i2c_smbus_read_byte_data(client,
+							PMBUS_FAN_CONFIG_12);
+		if (ret < 0)
+			continue;
+
+		if (ret == pb_cfg)
+			break;
+	}
+
+	if (i == 2)
+		return -EIO;
 
 	/*
 	 * Fans are on pages 0 - 5. If the page property of a fan node is
