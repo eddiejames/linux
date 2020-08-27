@@ -362,6 +362,27 @@ static int max31785_write_word_data(struct i2c_client *client, int page,
 	return -ENXIO;
 }
 
+static int max31785_pmbus_set_page(struct i2c_client *client, int page)
+{
+	int ret;
+	int i;
+
+	for (i = 0; i < 2; i++) {
+		ret = max31785_i2c_smbus_write_byte_data(client, PMBUS_PAGE, page);
+		if (ret < 0)
+			return ret;
+
+		ret = max31785_i2c_smbus_read_byte_data(client, PMBUS_PAGE);
+		if (ret < 0)
+			return ret;
+
+		if (ret == page)
+			return 0;
+	}
+
+	return -EIO;
+}
+
 /*
  * Returns negative error codes if an unrecoverable problem is detected, 0 if a
  * recoverable problem is detected, or a positive value on success.
@@ -392,7 +413,7 @@ static int max31785_of_fan_config(struct i2c_client *client,
 		return -ENXIO;
 	}
 
-	ret = max31785_i2c_smbus_write_byte_data(client, PMBUS_PAGE, page);
+	ret = max31785_pmbus_set_page(client, page);
 	if (ret < 0)
 		return ret;
 
@@ -599,7 +620,7 @@ static int max31785_of_tmp_config(struct i2c_client *client,
 		return -ENXIO;
 	}
 
-	ret = max31785_i2c_smbus_write_byte_data(client, PMBUS_PAGE, page);
+	ret = max31785_pmbus_set_page(client, page);
 	if (ret < 0)
 		return ret;
 
@@ -700,7 +721,7 @@ static int max31785_configure_dual_tach(struct i2c_client *client,
 	int i;
 
 	for (i = 0; i < MAX31785_NR_FAN_PAGES; i++) {
-		ret = max31785_i2c_smbus_write_byte_data(client, PMBUS_PAGE, i);
+		ret = max31785_pmbus_set_page(client, i);
 		if (ret < 0)
 			return ret;
 
@@ -741,7 +762,7 @@ static int max31785_probe(struct i2c_client *client)
 
 	*info = max31785_info;
 
-	ret = max31785_i2c_smbus_write_byte_data(client, PMBUS_PAGE, 255);
+	ret = max31785_pmbus_set_page(client, 255);
 	if (ret < 0)
 		return ret;
 
@@ -785,8 +806,7 @@ static int max31785_probe(struct i2c_client *client)
 		if (!have_fan || fan_configured)
 			continue;
 
-		ret = max31785_i2c_smbus_write_byte_data(client, PMBUS_PAGE,
-							 i);
+		ret = max31785_pmbus_set_page(client, i);
 		if (ret < 0)
 			return ret;
 
