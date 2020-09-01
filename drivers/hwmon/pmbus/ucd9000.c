@@ -401,6 +401,37 @@ static int ucd9000_debugfs_show_mfr_status_bit(void *data, u64 *val)
 DEFINE_DEBUGFS_ATTRIBUTE(ucd9000_debugfs_mfr_status_bit,
 			 ucd9000_debugfs_show_mfr_status_bit, NULL, "%1lld\n");
 
+#define UCD9000_SMBUS_THROTTLE_US	1000
+static int throttle_delay_us = UCD9000_SMBUS_THROTTLE_US;
+
+static int ucd9000_debugfs_show_smbus_throttle_delay(void *data,
+						     u64 *val)
+{
+	struct i2c_client *client = data;
+	unsigned long ulval;
+	int rc;
+
+	rc = i2c_smbus_throttle_value(client, &ulval);
+	if (rc)
+		return rc;
+
+	*val = ulval;
+
+	return 0;
+}
+
+static int ucd9000_debugfs_store_smbus_throttle_delay(void *data,
+						      u64 val)
+{
+	struct i2c_client *client = data;
+
+	throttle_delay_us = val;
+	return i2c_smbus_throttle_client(client, val);
+}
+DEFINE_DEBUGFS_ATTRIBUTE(ucd9000_debugfs_smbus_throttle_delay,
+			 ucd9000_debugfs_show_smbus_throttle_delay,
+			 ucd9000_debugfs_store_smbus_throttle_delay, "%llu\n");
+
 static ssize_t ucd9000_debugfs_read_mfr_status(struct file *file,
 					       char __user *buf, size_t count,
 					       loff_t *ppos)
@@ -475,6 +506,8 @@ static int ucd9000_init_debugfs(struct i2c_client *client,
 	scnprintf(name, UCD9000_DEBUGFS_NAME_LEN, "mfr_status");
 	debugfs_create_file(name, 0444, data->debugfs, client,
 			    &ucd9000_debugfs_show_mfr_status_fops);
+	debugfs_create_file("smbus_throttle_delay", 0664, data->debugfs, client,
+			    &ucd9000_debugfs_smbus_throttle_delay);
 
 	return 0;
 }
@@ -503,7 +536,9 @@ static int ucd9000_probe(struct i2c_client *client)
 				     I2C_FUNC_SMBUS_BLOCK_DATA))
 		return -ENODEV;
 
-	i2c_smbus_throttle_client(client, UCD9000_SMBUS_THROTTLE_US);
+	ret = i2c_smbus_throttle_client(client, throttle_delay_us);
+	if (ret)
+		return ret;
 
 	ret = i2c_smbus_read_block_data(client, UCD9000_DEVICE_ID,
 					block_buffer);
