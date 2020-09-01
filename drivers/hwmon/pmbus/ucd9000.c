@@ -487,6 +487,8 @@ static int ucd9000_init_debugfs(struct i2c_client *client,
 }
 #endif /* CONFIG_DEBUG_FS */
 
+#define UCD9000_SMBUS_THROTTLE_US	1000
+
 static int ucd9000_probe(struct i2c_client *client)
 {
 	u8 block_buffer[I2C_SMBUS_BLOCK_MAX + 1];
@@ -500,6 +502,8 @@ static int ucd9000_probe(struct i2c_client *client)
 				     I2C_FUNC_SMBUS_BYTE_DATA |
 				     I2C_FUNC_SMBUS_BLOCK_DATA))
 		return -ENODEV;
+
+	i2c_smbus_throttle_client(client, UCD9000_SMBUS_THROTTLE_US);
 
 	ret = i2c_smbus_read_block_data(client, UCD9000_DEVICE_ID,
 					block_buffer);
