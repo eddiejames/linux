@@ -269,7 +269,9 @@
 
 			xdma: xdma@1e6e7000 {
 				compatible = "aspeed,ast2500-xdma";
-				reg = <0x1e6e7000 0x100>;
+				reg = <0x1e6e7000 0x1000
+				       0x1e6ed000 0x1000>;
+				reg-names = "xdma", "pcie-bridge";
 				clocks = <&syscon ASPEED_CLK_GATE_BCLK>;
 				resets = <&syscon ASPEED_RESET_XDMA>;
 				interrupts-extended = <&vic 6>, <&scu_ic ASPEED_AST2500_SCU_IC_PCIE_RESET_LO_TO_HI>;

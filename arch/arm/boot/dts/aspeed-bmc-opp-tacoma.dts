@@ -33,7 +33,6 @@
 		};
 
 		/* 48MB region from the end of flash to start of vga memory */
-
 		ramoops@bc000000 {
 			compatible = "ramoops";
 			reg = <0xbc000000 0x180000>; /* 16 * (3 * 0x8000) */
