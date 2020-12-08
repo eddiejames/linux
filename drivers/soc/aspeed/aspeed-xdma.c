@@ -31,6 +31,11 @@
 
 #define DEVICE_NAME				"aspeed-xdma"
 
+#define PCIE_BRIDGE_CTRL			0x010
+#define  PCIE_BRIDGE_CTRL_MAX_PAYLOAD		 GENMASK(2, 0)
+#define PCIE_BRIDGE_PROTECTION			0x07c
+#define  PCIE_BRIDGE_PROTECTION_UNLOCK		 0xa8
+
 #define SCU_AST2600_MISC_CTRL			0x0c0
 #define  SCU_AST2600_MISC_CTRL_XDMA_BMC		 BIT(8)
 
@@ -210,8 +215,11 @@ struct aspeed_xdma {
 	struct clk *clock;
 	struct device *dev;
 	void __iomem *base;
+	void __iomem *pcie;
 	resource_size_t res_size;
 	resource_size_t res_start;
+	resource_size_t pcie_res_size;
+	resource_size_t pcie_res_start;
 	struct reset_control *reset;
 	struct reset_control *reset_rc;
 
@@ -308,6 +316,31 @@ static void aspeed_xdma_writel(struct aspeed_xdma *ctx, u8 reg, u32 val)
 	dev_dbg(ctx->dev, "write %02x[%08x]\n", reg, val);
 }
 
+static void aspeed_xdma_init_pcie(struct aspeed_xdma *ctx)
+{
+	u32 ctrl;
+	u32 max_payload;
+
+	if (!ctx->pcie)
+		return;
+
+	max_payload = (fls((unsigned int)ds_pcie_req_size) - 8) &
+		PCIE_BRIDGE_CTRL_MAX_PAYLOAD;
+	ctrl = readl(ctx->pcie + PCIE_BRIDGE_CTRL);
+	if ((ctrl & PCIE_BRIDGE_CTRL_MAX_PAYLOAD) == max_payload)
+		return;
+
+	ctrl &= ~PCIE_BRIDGE_CTRL_MAX_PAYLOAD;
+	ctrl |= max_payload;
+
+	dev_dbg(ctx->dev, "set pcie bridge %08x\n", ctrl);
+
+	writel(PCIE_BRIDGE_PROTECTION_UNLOCK,
+	       ctx->pcie + PCIE_BRIDGE_PROTECTION);
+	writel(ctrl, ctx->pcie + PCIE_BRIDGE_CTRL);
+	writel(0, ctx->pcie + PCIE_BRIDGE_PROTECTION);
+}
+
 static void aspeed_xdma_init_eng(struct aspeed_xdma *ctx)
 {
 	unsigned long flags;
@@ -323,6 +356,8 @@ static void aspeed_xdma_init_eng(struct aspeed_xdma *ctx)
 	aspeed_xdma_writel(ctx, ctx->chip->regs.bmc_cmdq_writep, 0);
 	aspeed_xdma_writel(ctx, ctx->chip->regs.control, control);
 	aspeed_xdma_writel(ctx, ctx->chip->regs.bmc_cmdq_addr, ctx->cmdq_phys);
+
+	aspeed_xdma_init_pcie(ctx);
 
 	ctx->cmd_idx = 0;
 	spin_unlock_irqrestore(&ctx->engine_lock, flags);
@@ -928,6 +963,11 @@ static void aspeed_xdma_kobject_release(struct kobject *kobj)
 
 	free_irq(ctx->irq, ctx);
 
+	if (ctx->pcie) {
+		iounmap(ctx->pcie);
+		release_mem_region(ctx->pcie_res_start, ctx->pcie_res_size);
+	}
+
 	iounmap(ctx->base);
 	release_mem_region(ctx->res_start, ctx->res_size);
 
@@ -959,6 +999,22 @@ static int aspeed_xdma_iomap(struct aspeed_xdma *ctx,
 
 	ctx->res_start = res->start;
 	ctx->res_size = size;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "pcie-bridge");
+	if (res) {
+		size = resource_size(res);
+
+		if (request_mem_region(res->start, size, dev_name(ctx->dev))) {
+			ctx->pcie = ioremap(res->start, size);
+			if (!ctx->pcie) {
+				release_mem_region(res->start, size);
+			} else {
+				ctx->pcie_res_start = res->start;
+				ctx->pcie_res_size = size;
+			}
+		}
+	}
 
 	return 0;
 }
@@ -1168,6 +1224,11 @@ err_noreset:
 err_noclk:
 	free_irq(ctx->irq, ctx);
 err_noirq:
+	if (ctx->pcie) {
+		iounmap(ctx->pcie);
+		release_mem_region(ctx->pcie_res_start, ctx->pcie_res_size);
+	}
+
 	iounmap(ctx->base);
 	release_mem_region(ctx->res_start, ctx->res_size);
 err_nomap:
