@@ -4,6 +4,7 @@
 #include <linux/aspeed-xdma.h>
 #include <linux/bitfield.h>
 #include <linux/clk.h>
+#include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
@@ -113,6 +114,9 @@
 #define  XDMA_AST2500_STATUS_US_COMP		 BIT(4)
 #define  XDMA_AST2500_STATUS_DS_COMP		 BIT(5)
 #define  XDMA_AST2500_STATUS_DS_DIRTY		 BIT(6)
+#define XDMA_AST2500_DS_FRAME_SZ		0x28
+#define XDMA_AST2500_PROBE_DS			0x30
+#define XDMA_AST2500_PROBE_US			0x34
 #define XDMA_AST2500_INPRG_DS_CMD1		0x38
 #define XDMA_AST2500_INPRG_DS_CMD2		0x3c
 #define XDMA_AST2500_INPRG_US_CMD00		0x40
@@ -247,6 +251,12 @@ struct aspeed_xdma {
 	struct gen_pool *pool;
 
 	struct miscdevice misc;
+
+#ifdef CONFIG_DEBUG_FS
+	struct dentry *debugfs;
+	struct debugfs_regset32 regset;
+	struct debugfs_blob_wrapper blob;
+#endif /* CONFIG_DEBUG_FS */
 };
 
 struct aspeed_xdma_client {
@@ -1019,6 +1029,95 @@ static int aspeed_xdma_iomap(struct aspeed_xdma *ctx,
 	return 0;
 }
 
+#ifdef CONFIG_DEBUG_FS
+
+#define XDMA_DEBUGFS_REG(n, o)	\
+{				\
+	.name = n,		\
+	.offset = o,		\
+}
+
+static const struct debugfs_reg32 aspeed_xdma_ast2500_debugfs_regs[] = {
+	XDMA_DEBUGFS_REG("CMDQ_ADDR", XDMA_AST2500_BMC_CMDQ_ADDR),
+	XDMA_DEBUGFS_REG("CMDQ_ENDP", XDMA_AST2500_BMC_CMDQ_ENDP),
+	XDMA_DEBUGFS_REG("CMDQ_WRITEP", XDMA_AST2500_BMC_CMDQ_WRITEP),
+	XDMA_DEBUGFS_REG("CMDQ_READP", XDMA_AST2500_BMC_CMDQ_READP),
+	XDMA_DEBUGFS_REG("CTRL", XDMA_AST2500_CTRL),
+	XDMA_DEBUGFS_REG("STAT", XDMA_AST2500_STATUS),
+	XDMA_DEBUGFS_REG("DS_FRAME_SIZE", XDMA_AST2500_DS_FRAME_SZ),
+	XDMA_DEBUGFS_REG("PROBE_DS", XDMA_AST2500_PROBE_DS),
+	XDMA_DEBUGFS_REG("PROBE_US", XDMA_AST2500_PROBE_US),
+	XDMA_DEBUGFS_REG("INPRG_DS10", XDMA_AST2500_INPRG_DS_CMD1),
+	XDMA_DEBUGFS_REG("INPRG_DS20", XDMA_AST2500_INPRG_DS_CMD2),
+	XDMA_DEBUGFS_REG("INPRG_US00", XDMA_AST2500_INPRG_US_CMD00),
+	XDMA_DEBUGFS_REG("INPRG_US01", XDMA_AST2500_INPRG_US_CMD01),
+	XDMA_DEBUGFS_REG("INPRG_US10", XDMA_AST2500_INPRG_US_CMD10),
+	XDMA_DEBUGFS_REG("INPRG_US11", XDMA_AST2500_INPRG_US_CMD11),
+	XDMA_DEBUGFS_REG("INPRG_US20", XDMA_AST2500_INPRG_US_CMD20),
+	XDMA_DEBUGFS_REG("INPRG_US20", XDMA_AST2500_INPRG_US_CMD21),
+};
+
+static const struct debugfs_reg32 aspeed_xdma_ast2600_debugfs_regs[] = {
+	XDMA_DEBUGFS_REG("CMDQ_ADDR", XDMA_AST2600_BMC_CMDQ_ADDR),
+	XDMA_DEBUGFS_REG("CMDQ_ENDP", XDMA_AST2600_BMC_CMDQ_ENDP),
+	XDMA_DEBUGFS_REG("CMDQ_WRITEP", XDMA_AST2600_BMC_CMDQ_WRITEP),
+	XDMA_DEBUGFS_REG("CMDQ_READP", XDMA_AST2600_BMC_CMDQ_READP),
+	XDMA_DEBUGFS_REG("CTRL", XDMA_AST2600_CTRL),
+	XDMA_DEBUGFS_REG("STAT", XDMA_AST2600_STATUS),
+	XDMA_DEBUGFS_REG("INPRG_DS00", XDMA_AST2600_INPRG_DS_CMD00),
+	XDMA_DEBUGFS_REG("INPRG_DS01", XDMA_AST2600_INPRG_DS_CMD01),
+	XDMA_DEBUGFS_REG("INPRG_DS10", XDMA_AST2600_INPRG_DS_CMD10),
+	XDMA_DEBUGFS_REG("INPRG_DS11", XDMA_AST2600_INPRG_DS_CMD11),
+	XDMA_DEBUGFS_REG("INPRG_DS20", XDMA_AST2600_INPRG_DS_CMD20),
+	XDMA_DEBUGFS_REG("INPRG_DS20", XDMA_AST2600_INPRG_DS_CMD21),
+	XDMA_DEBUGFS_REG("INPRG_US00", XDMA_AST2600_INPRG_US_CMD00),
+	XDMA_DEBUGFS_REG("INPRG_US01", XDMA_AST2600_INPRG_US_CMD01),
+	XDMA_DEBUGFS_REG("INPRG_US10", XDMA_AST2600_INPRG_US_CMD10),
+	XDMA_DEBUGFS_REG("INPRG_US11", XDMA_AST2600_INPRG_US_CMD11),
+	XDMA_DEBUGFS_REG("INPRG_US20", XDMA_AST2600_INPRG_US_CMD20),
+	XDMA_DEBUGFS_REG("INPRG_US20", XDMA_AST2600_INPRG_US_CMD21),
+};
+
+static int aspeed_xdma_debugfs_init(struct aspeed_xdma *ctx)
+{
+	ctx->debugfs = debugfs_create_dir(DEVICE_NAME, NULL);
+	if (!ctx->debugfs)
+		return -ENOMEM;
+
+	if (ctx->chip->regs.bmc_cmdq_addr == XDMA_AST2600_BMC_CMDQ_ADDR) {
+		ctx->regset.regs = aspeed_xdma_ast2600_debugfs_regs;
+		ctx->regset.nregs =
+			ARRAY_SIZE(aspeed_xdma_ast2600_debugfs_regs);
+	}
+	else if (ctx->chip->regs.bmc_cmdq_addr == XDMA_AST2500_BMC_CMDQ_ADDR) {
+		ctx->regset.regs = aspeed_xdma_ast2500_debugfs_regs;
+		ctx->regset.nregs =
+			ARRAY_SIZE(aspeed_xdma_ast2500_debugfs_regs);
+	} else {
+		return -EINVAL;
+	}
+
+	ctx->regset.base = ctx->base;
+
+	debugfs_create_regset32("regs", 0444, ctx->debugfs, &ctx->regset);
+
+	ctx->blob.data = ctx->mem_virt;
+	ctx->blob.size = ctx->mem_size;
+
+	debugfs_create_blob("mem", 0444, ctx->debugfs, &ctx->blob);
+
+	return 0;
+}
+
+#else /* CONFIG_DEBUG_FS */
+
+static int aspeed_xdma_debugfs_init(struct aspeed_xdma *ctx)
+{
+	return 0;
+}
+
+#endif /* CONFIG_DEBUG_FS */
+
 static int aspeed_xdma_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -1174,13 +1273,15 @@ static int aspeed_xdma_probe(struct platform_device *pdev)
 
 	ctx->misc.minor = MISC_DYNAMIC_MINOR;
 	ctx->misc.fops = &aspeed_xdma_fops;
-	ctx->misc.name = "aspeed-xdma";
+	ctx->misc.name = DEVICE_NAME;
 	ctx->misc.parent = dev;
 	rc = misc_register(&ctx->misc);
 	if (rc) {
 		dev_err(dev, "Failed to register xdma miscdevice.\n");
 		goto err_misc;
 	}
+
+	aspeed_xdma_debugfs_init(ctx);
 
 	/*
 	 * This interrupt could fire immediately so only request it once the
@@ -1247,6 +1348,7 @@ static int aspeed_xdma_remove(struct platform_device *pdev)
 
 	aspeed_xdma_done(ctx, true);
 
+	debugfs_remove_recursive(ctx->debugfs);
 	misc_deregister(&ctx->misc);
 	kobject_put(&ctx->kobj);
 
