@@ -101,7 +101,7 @@
 #define  XDMA_AST2500_CTRL_US_COMP		 BIT(4)
 #define  XDMA_AST2500_CTRL_DS_COMP		 BIT(5)
 #define  XDMA_AST2500_CTRL_DS_DIRTY		 BIT(6)
-#define  XDMA_AST2500_CTRL_DS_SIZE_256		 BIT(17)
+#define  XDMA_AST2500_CTRL_DS_SIZE		 GENMASK(19, 17)
 #define  XDMA_AST2500_CTRL_DS_TIMEOUT		 BIT(28)
 #define  XDMA_AST2500_CTRL_DS_CHECK_ID		 BIT(29)
 #define XDMA_AST2500_STATUS			0x24
@@ -143,7 +143,7 @@
 #define  XDMA_AST2600_CTRL_US_COMP		 BIT(16)
 #define  XDMA_AST2600_CTRL_DS_COMP		 BIT(17)
 #define  XDMA_AST2600_CTRL_DS_DIRTY		 BIT(18)
-#define  XDMA_AST2600_CTRL_DS_SIZE_256		 BIT(20)
+#define  XDMA_AST2600_CTRL_DS_SIZE		 GENMASK(22, 20)
 #define XDMA_AST2600_STATUS			0x3c
 #define  XDMA_AST2600_STATUS_US_COMP		 BIT(16)
 #define  XDMA_AST2600_STATUS_DS_COMP		 BIT(17)
@@ -190,6 +190,7 @@ struct aspeed_xdma_chip {
 	u32 scu_bmc_class;
 	u32 scu_misc_ctrl;
 	u32 scu_pcie_conf;
+	unsigned int ds_pcie_req_size_shift;
 	unsigned int queue_entry_size;
 	struct aspeed_xdma_regs regs;
 	struct aspeed_xdma_status_bits status_bits;
@@ -250,6 +251,49 @@ struct aspeed_xdma_client {
 	u32 size;
 };
 
+static char *pcie_device = "none";
+static u16 ds_pcie_req_size = 256;
+
+static int set_ds_pcie_req_size(const char *val, const struct kernel_param *kp)
+{
+	int rc;
+	unsigned long sz = ds_pcie_req_size;
+
+	rc = kstrtoul(val, 0, &sz);
+	if (rc)
+		return rc;
+
+	if (sz == 128)
+		ds_pcie_req_size = 128;
+	else if (sz == 256)
+		ds_pcie_req_size = 256;
+	else if (sz == 512)
+		ds_pcie_req_size = 512;
+	else if (sz == 1024)
+		ds_pcie_req_size = 1024;
+	else if (sz == 2048)
+		ds_pcie_req_size = 2048;
+	else if (sz == 4096)
+		ds_pcie_req_size = 4096;
+	else
+		return -EINVAL;
+
+	return 0;
+}
+
+static int get_ds_pcie_req_size(char *buffer, const struct kernel_param *kp)
+{
+	return snprintf(buffer, PAGE_SIZE - 1, "%u\n", ds_pcie_req_size);
+}
+
+static const struct kernel_param_ops ds_pcie_req_size_ops = {
+	.set = set_ds_pcie_req_size,
+	.get = get_ds_pcie_req_size,
+};
+
+module_param_cb(ds_pcie_req_size, &ds_pcie_req_size_ops, NULL, 0644);
+module_param(pcie_device, charp, 0644);
+
 static u32 aspeed_xdma_readl(struct aspeed_xdma *ctx, u8 reg)
 {
 	u32 v = readl(ctx->base + reg);
@@ -267,6 +311,9 @@ static void aspeed_xdma_writel(struct aspeed_xdma *ctx, u8 reg, u32 val)
 static void aspeed_xdma_init_eng(struct aspeed_xdma *ctx)
 {
 	unsigned long flags;
+	u32 control = ctx->chip->control |
+		((fls((unsigned int)ds_pcie_req_size) - 8) <<
+		 ctx->chip->ds_pcie_req_size_shift);
 
 	spin_lock_irqsave(&ctx->engine_lock, flags);
 	aspeed_xdma_writel(ctx, ctx->chip->regs.bmc_cmdq_endp,
@@ -274,7 +321,7 @@ static void aspeed_xdma_init_eng(struct aspeed_xdma *ctx)
 	aspeed_xdma_writel(ctx, ctx->chip->regs.bmc_cmdq_readp,
 			   XDMA_BMC_CMDQ_READP_RESET);
 	aspeed_xdma_writel(ctx, ctx->chip->regs.bmc_cmdq_writep, 0);
-	aspeed_xdma_writel(ctx, ctx->chip->regs.control, ctx->chip->control);
+	aspeed_xdma_writel(ctx, ctx->chip->regs.control, control);
 	aspeed_xdma_writel(ctx, ctx->chip->regs.bmc_cmdq_addr, ctx->cmdq_phys);
 
 	ctx->cmd_idx = 0;
@@ -792,6 +839,18 @@ static const struct file_operations aspeed_xdma_fops = {
 	.release		= aspeed_xdma_release,
 };
 
+static int aspeed_xdma_parse_pcie_device(const char *str, bool *bmc)
+{
+	if (!strcmp(str, "vga"))
+		*bmc = false;
+	else if (!strcmp(str, "bmc"))
+		*bmc = true;
+	else
+		return -EINVAL;
+
+	return 0;
+}
+
 static int aspeed_xdma_init_scu(struct aspeed_xdma *ctx, struct device *dev)
 {
 	struct regmap *scu = syscon_regmap_lookup_by_phandle(dev->of_node,
@@ -808,11 +867,14 @@ static int aspeed_xdma_init_scu(struct aspeed_xdma *ctx, struct device *dev)
 			SCU_PCIE_CONF_VGA_EN_DMA;
 		const char *pcie = NULL;
 
+		if (!aspeed_xdma_parse_pcie_device(pcie_device,
+						   &pcie_device_bmc))
+			goto write_scu;
+
 		if (!of_property_read_string(dev->of_node,
 					     "aspeed,pcie-device", &pcie)) {
-			if (!strcmp(pcie, "vga")) {
-				pcie_device_bmc = false;
-			} else if (strcmp(pcie, "bmc")) {
+			if (aspeed_xdma_parse_pcie_device(pcie,
+							  &pcie_device_bmc)) {
 				dev_err(dev,
 					"Invalid pcie-device property %s.\n",
 					pcie);
@@ -820,6 +882,7 @@ static int aspeed_xdma_init_scu(struct aspeed_xdma *ctx, struct device *dev)
 			}
 		}
 
+write_scu:
 		if (pcie_device_bmc) {
 			selection = bmc;
 			regmap_write(scu, ctx->chip->scu_bmc_class,
@@ -1131,11 +1194,12 @@ static int aspeed_xdma_remove(struct platform_device *pdev)
 
 static const struct aspeed_xdma_chip aspeed_ast2500_xdma_chip = {
 	.control = XDMA_AST2500_CTRL_US_COMP | XDMA_AST2500_CTRL_DS_COMP |
-		XDMA_AST2500_CTRL_DS_DIRTY | XDMA_AST2500_CTRL_DS_SIZE_256 |
-		XDMA_AST2500_CTRL_DS_TIMEOUT | XDMA_AST2500_CTRL_DS_CHECK_ID,
+		XDMA_AST2500_CTRL_DS_DIRTY | XDMA_AST2500_CTRL_DS_TIMEOUT |
+		XDMA_AST2500_CTRL_DS_CHECK_ID,
 	.scu_bmc_class = SCU_AST2500_BMC_CLASS_REV,
 	.scu_misc_ctrl = 0,
 	.scu_pcie_conf = SCU_AST2500_PCIE_CONF,
+	.ds_pcie_req_size_shift = __builtin_ffs(XDMA_AST2500_CTRL_DS_SIZE) - 1,
 	.queue_entry_size = XDMA_AST2500_QUEUE_ENTRY_SIZE,
 	.regs = {
 		.bmc_cmdq_addr = XDMA_AST2500_BMC_CMDQ_ADDR,
@@ -1155,10 +1219,11 @@ static const struct aspeed_xdma_chip aspeed_ast2500_xdma_chip = {
 
 static const struct aspeed_xdma_chip aspeed_ast2600_xdma_chip = {
 	.control = XDMA_AST2600_CTRL_US_COMP | XDMA_AST2600_CTRL_DS_COMP |
-		XDMA_AST2600_CTRL_DS_DIRTY | XDMA_AST2600_CTRL_DS_SIZE_256,
+		XDMA_AST2600_CTRL_DS_DIRTY,
 	.scu_bmc_class = SCU_AST2600_BMC_CLASS_REV,
 	.scu_misc_ctrl = SCU_AST2600_MISC_CTRL,
 	.scu_pcie_conf = SCU_AST2600_PCIE_CONF,
+	.ds_pcie_req_size_shift = __builtin_ffs(XDMA_AST2600_CTRL_DS_SIZE) - 1,
 	.queue_entry_size = XDMA_AST2600_QUEUE_ENTRY_SIZE,
 	.regs = {
 		.bmc_cmdq_addr = XDMA_AST2600_BMC_CMDQ_ADDR,
