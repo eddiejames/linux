@@ -88,14 +88,30 @@
 		i2c24 = &i2c6mux0chn1;
 		i2c25 = &i2c6mux0chn2;
 		i2c26 = &i2c6mux0chn3;
-		i2c27 = &i2c14mux0chn0;
-		i2c28 = &i2c14mux0chn1;
-		i2c29 = &i2c14mux0chn2;
-		i2c30 = &i2c14mux0chn3;
-		i2c31 = &i2c14mux1chn0;
-		i2c32 = &i2c14mux1chn1;
-		i2c33 = &i2c14mux1chn2;
-		i2c34 = &i2c14mux1chn3;
+		i2c27 = &i2c8mux0chn0;
+		i2c28 = &i2c8mux0chn1;
+		i2c29 = &i2c8mux0chn2;
+		i2c30 = &i2c8mux0chn3;
+		i2c31 = &i2c14mux0chn0;
+		i2c32 = &i2c14mux0chn1;
+		i2c33 = &i2c14mux0chn2;
+		i2c34 = &i2c14mux0chn3;
+		i2c35 = &i2c14mux1chn0;
+		i2c36 = &i2c14mux1chn1;
+		i2c37 = &i2c14mux1chn2;
+		i2c38 = &i2c14mux1chn3;
+		i2c39 = &i2c15mux0chn0;
+		i2c40 = &i2c15mux0chn1;
+		i2c41 = &i2c15mux0chn2;
+		i2c42 = &i2c15mux0chn3;
+		i2c43 = &i2c15mux1chn0;
+		i2c44 = &i2c15mux1chn1;
+		i2c45 = &i2c15mux1chn2;
+		i2c46 = &i2c15mux1chn3;
+		i2c47 = &i2c15mux2chn0;
+		i2c48 = &i2c15mux2chn1;
+		i2c49 = &i2c15mux2chn2;
+		i2c50 = &i2c15mux2chn3;
 
 		serial4 = &uart5;
 
@@ -241,6 +257,112 @@
 	eeprom@51 {
 		compatible = "atmel,24c64";
 		reg = <0x51>;
+	};
+
+	pervasive_reset: pca9552@61 {
+		compatible = "nxp,pca9552";
+		reg = <0x61>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		gpio-line-names =
+			"reset-ucd90320",
+			"reset-apss",
+			"reset-cc-expander",
+			"reset-pca9552-b0",
+			"reset-pca9552-b1",
+			"reset-tca9548-b2",
+			"reset-ps-b3",
+			"reset-pca9546-b4",
+			"reset-pca9546-b5",
+			"reset-pca9546-b6",
+			"reset-b7",
+			"reset-pca9546-b14",
+			"reset-pca9546-b15",
+			"";
+
+		gpio@0 {
+			reg = <0>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@01 {
+			reg = <1>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@2 {
+			reg = <2>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@3 {
+			reg = <3>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@4 {
+			reg = <4>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@5 {
+			reg = <5>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@6 {
+			reg = <6>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@7 {
+			reg = <7>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@8 {
+			reg = <8>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@9 {
+			reg = <9>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@10 {
+			reg = <10>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@11 {
+			reg = <11>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@12 {
+			reg = <12>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@13 {
+			reg = <13>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@14 {
+			reg = <14>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
+
+		gpio@15 {
+			reg = <15>;
+			type = <PCA955X_TYPE_GPIO>;
+		};
 	};
 
 	pca1: pca9552@62 {
@@ -516,6 +638,70 @@
 
 &i2c2 {
 	status = "okay";
+
+	i2c-switch@70 {
+		compatible = "nxp,pca9548";
+		reg = <0x70>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-mux-idle-disconnect;
+
+		i2c2mux0chn0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+		};
+
+		i2c2mux0chn1: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+		};
+
+		i2c2mux0chn2: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+
+		};
+
+		i2c2mux0chn3: i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+
+		};
+
+		i2c2mux0chn4: i2c@4 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <4>;
+
+		};
+
+		i2c2mux0chn5: i2c@5 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <5>;
+
+		};
+
+		i2c2mux0chn6: i2c@6 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <6>;
+
+		};
+
+		i2c2mux0chn7: i2c@7 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <7>;
+
+		};
+	};
 };
 
 &i2c3 {
@@ -713,6 +899,16 @@
 		reg = <0x32>;
 	};
 
+	tmp275@48 {
+		compatible = "ti,tmp275";
+		reg = <0x48>;
+	};
+
+	tmp275@4a {
+		compatible = "ti,tmp275";
+		reg = <0x4a>;
+	};
+
 	eeprom@51 {
 		compatible = "atmel,24c64";
 		reg = <0x51>;
@@ -721,6 +917,38 @@
 	eeprom@50 {
 		compatible = "atmel,24c128";
 		reg = <0x50>;
+	};
+
+	i2c-switch@70 {
+		compatible = "nxp,pca9546";
+		reg = <0x70>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-mux-idle-disconnect;
+
+		i2c8mux0chn0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		i2c8mux0chn1: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+
+		i2c8mux0chn2: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+
+		i2c8mux0chn3: i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+		};
 	};
 };
 
@@ -825,6 +1053,7 @@
 };
 
 &i2c14 {
+	multi-master;
 	status = "okay";
 
 	i2c-switch@70 {
@@ -832,8 +1061,8 @@
 		reg = <0x70>;
 		#address-cells = <1>;
 		#size-cells = <0>;
-		status = "okay";
 		i2c-mux-idle-disconnect;
+		reset-gpios = <&pervasive_reset 11 GPIO_ACTIVE_LOW>;
 
 		i2c14mux0chn0: i2c@0 {
 			#address-cells = <1>;
@@ -849,9 +1078,15 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <1>;
+
 			eeprom@51 {
 				compatible = "atmel,24c32";
 				reg = <0x51>;
+			};
+
+			ibm-panel@62 {
+				compatible = "ibm,op-panel";
+				reg = <(0x62 | I2C_OWN_SLAVE_ADDRESS)>;
 			};
 		};
 
@@ -859,9 +1094,76 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <2>;
+
+			si7021-a20@40 {
+				compatible = "silabs,si7020";
+				reg = <0x40>;
+			};
+
+			tmp275@48 {
+				compatible = "ti,tmp275";
+				reg = <0x48>;
+			};
+
 			eeprom@50 {
 				compatible = "atmel,24c32";
 				reg = <0x50>;
+			};
+
+			leds_op_panel: pca9551@60 {
+				compatible = "nxp,pca9551";
+				reg = <0x60>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+
+				gpio@0 {
+					reg = <0>;
+					type = <PCA955X_TYPE_GPIO>;
+				};
+
+				gpio@1 {
+					reg = <1>;
+					type = <PCA955X_TYPE_GPIO>;
+				};
+
+				gpio@2 {
+					reg = <2>;
+					type = <PCA955X_TYPE_GPIO>;
+				};
+
+				gpio@3 {
+					reg = <3>;
+					type = <PCA955X_TYPE_GPIO>;
+				};
+
+				gpio@4 {
+					reg = <4>;
+					type = <PCA955X_TYPE_GPIO>;
+				};
+
+				gpio@5 {
+					reg = <5>;
+					type = <PCA955X_TYPE_GPIO>;
+				};
+
+				gpio@6 {
+					reg = <6>;
+					type = <PCA955X_TYPE_GPIO>;
+				};
+
+				gpio@7 {
+					reg = <7>;
+					type = <PCA955X_TYPE_GPIO>;
+				};
+			};
+
+			dps: dps310@76 {
+				compatible = "infineon,dps310";
+				reg = <0x76>;
+				#io-channel-cells = <0>;
 			};
 		};
 
@@ -1030,8 +1332,8 @@
 		reg = <0x71>;
 		#address-cells = <1>;
 		#size-cells = <0>;
-		status = "okay";
 		i2c-mux-idle-disconnect;
+		reset-gpios = <&pervasive_reset 11 GPIO_ACTIVE_LOW>;
 
 		i2c14mux1chn0: i2c@0 {
 			#address-cells = <1>;
@@ -1077,6 +1379,105 @@
 
 &i2c15 {
 	status = "okay";
+
+	i2c-switch@70 {
+		compatible = "nxp,pca9546";
+		reg = <0x70>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-mux-idle-disconnect;
+		reset-gpios = <&pervasive_reset 12 GPIO_ACTIVE_LOW>;
+
+		i2c15mux0chn0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		i2c15mux0chn1: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+
+		i2c15mux0chn2: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+
+		i2c15mux0chn3: i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+		};
+	};
+
+	i2c-switch@71 {
+		compatible = "nxp,pca9546";
+		reg = <0x71>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-mux-idle-disconnect;
+		reset-gpios = <&pervasive_reset 12 GPIO_ACTIVE_LOW>;
+
+		i2c15mux1chn0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		i2c15mux1chn1: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+
+		i2c15mux1chn2: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+
+		i2c15mux1chn3: i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+		};
+	};
+
+	i2c-switch@72 {
+		compatible = "nxp,pca9546";
+		reg = <0x72>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-mux-idle-disconnect;
+		reset-gpios = <&pervasive_reset 12 GPIO_ACTIVE_LOW>;
+
+		i2c15mux2chn0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+		};
+
+		i2c15mux2chn1: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+		};
+
+		i2c15mux2chn2: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+		};
+
+		i2c15mux2chn3: i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+		};
+	};
 };
 
 &ehci1 {
