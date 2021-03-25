@@ -436,8 +436,21 @@ static int pca954x_probe(struct i2c_client *client,
 
 	/* Reset the mux if a reset GPIO is specified. */
 	gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
-	if (IS_ERR(gpio))
-		return PTR_ERR(gpio);
+	if (IS_ERR(gpio)) {
+		ret = PTR_ERR(gpio);
+		/*
+		 * In the case that multiple muxes share a single reset line, only one
+		 * should toggle the reset. The other muxes should continue probing,
+		 * delayed. It's still possible that the chip is in reset when this
+		 * device continues probing.
+		 */
+		if (ret == -EBUSY) {
+			udelay(5);
+			gpio = NULL;
+		} else {
+			return ret;
+		}
+	}
 	if (gpio) {
 		udelay(1);
 		gpiod_set_value_cansleep(gpio, 0);
