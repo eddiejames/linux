@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright 2021 IBM Corp.
+/dts-v1/;
+
+#include "aspeed-bmc-ibm-rainier-4u.dts"
+
+/ {
+	model = "Rainier 4U Pass 1";
+
+	aliases {
+		/delete-property/ i2c20;
+		/delete-property/ i2c21;
+		/delete-property/ i2c22;
+		/delete-property/ i2c23;
+		/delete-property/ i2c24;
+		/delete-property/ i2c25;
+		/delete-property/ i2c26;
+		/delete-property/ i2c27;
+		/delete-property/ i2c28;
+		/delete-property/ i2c29;
+		/delete-property/ i2c30;
+	};
+};
+
+&i2c4 {
+	/delete-node/ pca9546@70;
+
+	eeprom@50 {
+		compatible = "atmel,24c64";
+		reg = <0x50>;
+	};
+
+	eeprom@51 {
+		compatible = "atmel,24c64";
+		reg = <0x51>;
+	};
+
+	eeprom@52 {
+		compatible = "atmel,24c64";
+		reg = <0x52>;
+	};
+};
+
+&i2c5 {
+	/delete-node/ pca9546@70;
+
+	eeprom@50 {
+		compatible = "atmel,24c64";
+		reg = <0x50>;
+	};
+
+	eeprom@51 {
+		compatible = "atmel,24c64";
+		reg = <0x51>;
+	};
+};
+
+&i2c6 {
+	/delete-node/ pca9546@70;
+
+	eeprom@50 {
+		compatible = "atmel,24c64";
+		reg = <0x50>;
+	};
+
+	eeprom@51 {
+		compatible = "atmel,24c64";
+		reg = <0x51>;
+	};
+
+	eeprom@52 {
+		compatible = "atmel,24c64";
+		reg = <0x52>;
+	};
+
+	eeprom@53 {
+		compatible = "atmel,24c64";
+		reg = <0x53>;
+	};
+};
+
+&i2c11 {
+	/delete-node/ pca9546@70;
+
+	eeprom@50 {
+		compatible = "atmel,24c64";
+		reg = <0x50>;
+	};
+
+	eeprom@51 {
+		compatible = "atmel,24c64";
+		reg = <0x51>;
+	};
+};
