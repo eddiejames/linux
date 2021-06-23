@@ -102,12 +102,12 @@ enum sbe_state
 #define sbefifo_eot_set(sts)	(((sts) & SBEFIFO_STS_EOT_MASK) >> SBEFIFO_STS_EOT_SHIFT)
 
 /* Reset request timeout in ms */
-#define SBEFIFO_RESET_TIMEOUT		10000
+#define SBEFIFO_RESET_TIMEOUT		30000
 
 /* Timeouts for commands in ms */
-#define SBEFIFO_TIMEOUT_START_CMD	10000
+#define SBEFIFO_TIMEOUT_START_CMD	30000
 #define SBEFIFO_TIMEOUT_IN_CMD		1000
-#define SBEFIFO_TIMEOUT_START_RSP	10000
+#define SBEFIFO_TIMEOUT_START_RSP	30000
 #define SBEFIFO_TIMEOUT_IN_RSP		1000
 
 /* Other constants */
