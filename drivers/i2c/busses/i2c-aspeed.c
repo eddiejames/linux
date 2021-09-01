@@ -119,6 +119,20 @@
 /* 0x18 : I2CD Slave Device Address Register   */
 #define ASPEED_I2CD_DEV_ADDR_MASK			GENMASK(6, 0)
 
+enum aspeed_i2c_op_type {
+	ASPEED_I2C_OP_READ,
+	ASPEED_I2C_OP_WRITE,
+	ASPEED_I2C_OP_SLAVE,
+};
+
+enum aspeed_i2c_trace_type {
+	ASPEED_I2C_TRACE_START,
+	ASPEED_I2C_TRACE_MASTER_IRQ,
+	ASPEED_I2C_TRACE_RECOVER,
+	ASPEED_I2C_TRACE_STOP,
+	ASPEED_I2C_TRACE_SLAVE_IRQ,
+};
+
 enum aspeed_i2c_master_state {
 	ASPEED_I2C_MASTER_INACTIVE,
 	ASPEED_I2C_MASTER_PENDING,
@@ -138,6 +152,35 @@ enum aspeed_i2c_slave_state {
 	ASPEED_I2C_SLAVE_WRITE_REQUESTED,
 	ASPEED_I2C_SLAVE_WRITE_RECEIVED,
 	ASPEED_I2C_SLAVE_STOP,
+};
+
+struct aspeed_i2c_trace_entry {
+	ktime_t time;
+	u32 irqsts;
+	u32 cmd;
+	u8 trace_type;
+	u8 master_state;
+	u8 slave_state;
+	u8 cur_op_idx;
+};
+
+struct aspeed_i2c_trace_op {
+	u8 buf[15];
+	u8 addr;
+	u8 buf_idx;
+	u8 op_type;
+	u16 len;
+};
+
+struct aspeed_i2c_traces {
+	u32 functrl;
+	u32 timing1;
+	u32 timing2;
+	u32 irqctrl;
+	struct aspeed_i2c_trace_entry entries[16];
+	struct aspeed_i2c_trace_op ops[8];
+	u8 idx;
+	u8 op_idx;
 };
 
 struct aspeed_i2c_bus {
@@ -168,7 +211,143 @@ struct aspeed_i2c_bus {
 	struct i2c_client		*slave;
 	enum aspeed_i2c_slave_state	slave_state;
 #endif /* CONFIG_I2C_SLAVE */
+	struct aspeed_i2c_traces	traces;
 };
+
+static void aspeed_i2c_dump_traces(struct aspeed_i2c_bus *bus)
+{
+	int i;
+	int j;
+	struct timespec64 ts;
+	struct aspeed_i2c_trace_op *op;
+	struct aspeed_i2c_trace_entry *entry;
+	static const char *master_state_names[] = {
+		"inactive",
+		"pending\t",
+		"start\t",
+		"tx_first",
+		"tx\t\t",
+		"rx_first",
+		"rx\t\t",
+		"stop\t"
+	};
+	static const char *op_type_names[] = {
+		"read",
+		"write",
+		"slave",
+	};
+	static const char *slave_state_names[] = {
+		"inactive\t",
+		"start\t\t",
+		"read_req\t",
+		"read_proc\t",
+		"write_req\t",
+		"write_proc\t",
+		"stop\t\t"
+	};
+
+	dev_info(bus->dev,
+		 "functrl:%08x timing1:%08x timing2:%08x irqctrl:%08x\n",
+		 bus->traces.functrl, bus->traces.timing1, bus->traces.timing2,
+		 bus->traces.irqctrl);
+
+	for (i = 0; i < 16; ++i) {
+		entry = &bus->traces.entries[(i + bus->traces.idx) % 16];
+		ts = ktime_to_timespec64(entry->time);
+		switch (entry->trace_type) {
+		case ASPEED_I2C_TRACE_START:
+			dev_info(bus->dev,
+				 "  %lld.%.9ld start\top:%d cmd:%08x m:%s s:%s\n", ts.tv_sec, ts.tv_nsec,
+				 entry->cur_op_idx, entry->cmd,
+				 master_state_names[entry->master_state],
+				 slave_state_names[entry->slave_state]);
+			break;
+		case ASPEED_I2C_TRACE_MASTER_IRQ:
+			dev_info(bus->dev, "  %lld.%.9ld mstr\top:%d cmd:%08x m:%s s:%s irq:%08x\n", ts.tv_sec,
+				 ts.tv_nsec, entry->cur_op_idx, entry->cmd,
+				 master_state_names[entry->master_state],
+				 slave_state_names[entry->slave_state], entry->irqsts);
+			break;
+		case ASPEED_I2C_TRACE_RECOVER:
+			dev_info(bus->dev,
+				 "  %lld.%.9ld recover\top:%d cmd:%08x m:%s s:%s\n", ts.tv_sec, ts.tv_nsec,
+				 entry->cur_op_idx, entry->cmd,
+				 master_state_names[entry->master_state],
+				 slave_state_names[entry->slave_state]);
+			break;
+		case ASPEED_I2C_TRACE_STOP:
+			dev_info(bus->dev,
+				 "  %lld.%.9ld stop\top:%d cmd:%08x m:%s s:%s\n", ts.tv_sec, ts.tv_nsec,
+				 entry->cur_op_idx, entry->cmd,
+				 master_state_names[entry->master_state],
+				 slave_state_names[entry->slave_state]);
+			break;
+		case ASPEED_I2C_TRACE_SLAVE_IRQ:
+			dev_info(bus->dev, "  %lld.%.9ld slv\top:%d cmd:%08x m:%s s:%s irq:%08x\n", ts.tv_sec,
+				 ts.tv_nsec, entry->cur_op_idx, entry->cmd,
+				 master_state_names[entry->master_state],
+				 slave_state_names[entry->slave_state], entry->irqsts);
+			break;
+		}
+	}
+
+	for (i = 0; i < 8; ++i) {
+		int len;
+		uint8_t *buf;
+		uint8_t _buf[15];
+
+		j = (i + bus->traces.op_idx + 1) % 8;
+		op = &bus->traces.ops[j];
+		buf = op->buf;
+
+		if (op->len >= 15) {
+			int i;
+
+			len = 15;
+			buf = _buf;
+
+			for (i = 0; i < 15; ++i)
+				_buf[i] = op->buf[(i + op->buf_idx) % 15];
+		}
+		else {
+			len = op->buf_idx;
+		}
+
+		dev_info(bus->dev, "%d: %s addr:%02x len:%d comp:%d\n", j,
+			 op_type_names[op->op_type], op->addr, op->len, len);
+
+		if (len) {
+			char prefix[64];
+
+			snprintf(prefix, sizeof(prefix), "%s %s:     ",
+				dev_driver_string(bus->dev),
+				dev_name(bus->dev));
+			print_hex_dump(KERN_INFO, prefix, DUMP_PREFIX_NONE, 16,
+				       1, buf, len, false);
+		}
+	}
+}
+
+static void aspeed_i2c_new_op(struct aspeed_i2c_bus *bus, u8 type, u8 addr,
+			      u16 len)
+{
+	u8 op_idx = (bus->traces.op_idx + 1) % 8;
+
+	bus->traces.op_idx = op_idx;
+	bus->traces.ops[op_idx].addr = addr;
+	bus->traces.ops[op_idx].buf_idx = 0;
+	bus->traces.ops[op_idx].op_type = type;
+	bus->traces.ops[op_idx].len = len;
+}
+
+static void aspeed_i2c_op_push(struct aspeed_i2c_bus *bus, u8 value)
+{
+	u8 op_idx = bus->traces.op_idx;
+	u8 buf_idx = bus->traces.ops[op_idx].buf_idx;
+
+	bus->traces.ops[op_idx].buf[buf_idx] = value;
+	bus->traces.ops[op_idx].buf_idx = (buf_idx + 1) % 15;
+}
 
 static int aspeed_i2c_reset(struct aspeed_i2c_bus *bus);
 
@@ -180,6 +359,17 @@ static int aspeed_i2c_recover_bus(struct aspeed_i2c_bus *bus)
 
 	spin_lock_irqsave(&bus->lock, flags);
 	command = readl(bus->base + ASPEED_I2C_CMD_REG);
+
+	bus->traces.entries[bus->traces.idx].time = ktime_get_raw();
+	bus->traces.entries[bus->traces.idx].irqsts = 0;
+	bus->traces.entries[bus->traces.idx].cmd = command;
+	bus->traces.entries[bus->traces.idx].trace_type = ASPEED_I2C_TRACE_RECOVER;
+	bus->traces.entries[bus->traces.idx].master_state = bus->master_state;
+#if IS_ENABLED(CONFIG_I2C_SLAVE)
+	bus->traces.entries[bus->traces.idx].slave_state = bus->slave_state;
+#endif /* CONFIG_I2C_SLAVE */
+	bus->traces.entries[bus->traces.idx].cur_op_idx = bus->traces.op_idx;
+	bus->traces.idx = (bus->traces.idx + 1) % 16;
 
 	if (command & ASPEED_I2CD_SDA_LINE_STS) {
 		/* Bus is idle: no recovery needed. */
@@ -246,16 +436,28 @@ static u32 aspeed_i2c_slave_irq(struct aspeed_i2c_bus *bus, u32 irq_status)
 	u32 command, irq_handled = 0;
 	struct i2c_client *slave = bus->slave;
 	u8 value;
+	u8 idx = bus->traces.idx;
 
 	if (!slave)
 		return 0;
 
 	command = readl(bus->base + ASPEED_I2C_CMD_REG);
 
+	bus->traces.idx = (idx + 1) % 16;
+	bus->traces.entries[idx].time = ktime_get_raw();
+	bus->traces.entries[idx].irqsts = irq_status;
+	bus->traces.entries[idx].cmd = command;
+	bus->traces.entries[idx].trace_type = ASPEED_I2C_TRACE_SLAVE_IRQ;
+	bus->traces.entries[idx].master_state = bus->master_state;
+	bus->traces.entries[idx].slave_state = bus->slave_state;
+	bus->traces.entries[idx].cur_op_idx = bus->traces.op_idx;
+
 	/* Slave was requested, restart state machine. */
 	if (irq_status & ASPEED_I2CD_INTR_SLAVE_MATCH) {
 		irq_handled |= ASPEED_I2CD_INTR_SLAVE_MATCH;
 		bus->slave_state = ASPEED_I2C_SLAVE_START;
+
+		aspeed_i2c_new_op(bus, ASPEED_I2C_OP_SLAVE, 0, 0);
 	}
 
 	/* Slave is not currently active, irq was for someone else. */
@@ -268,14 +470,20 @@ static u32 aspeed_i2c_slave_irq(struct aspeed_i2c_bus *bus, u32 irq_status)
 	/* Slave was sent something. */
 	if (irq_status & ASPEED_I2CD_INTR_RX_DONE) {
 		value = readl(bus->base + ASPEED_I2C_BYTE_BUF_REG) >> 8;
+
 		/* Handle address frame. */
 		if (bus->slave_state == ASPEED_I2C_SLAVE_START) {
+			bus->traces.ops[bus->traces.op_idx].addr = value;
+
 			if (value & 0x1)
 				bus->slave_state =
 						ASPEED_I2C_SLAVE_READ_REQUESTED;
 			else
 				bus->slave_state =
 						ASPEED_I2C_SLAVE_WRITE_REQUESTED;
+		} else {
+			aspeed_i2c_op_push(bus, value);
+			bus->traces.ops[bus->traces.op_idx].len++;
 		}
 		irq_handled |= ASPEED_I2CD_INTR_RX_DONE;
 	}
@@ -297,6 +505,10 @@ static u32 aspeed_i2c_slave_irq(struct aspeed_i2c_bus *bus, u32 irq_status)
 			dev_err(bus->dev, "Unexpected ACK on read request.\n");
 		bus->slave_state = ASPEED_I2C_SLAVE_READ_PROCESSED;
 		i2c_slave_event(slave, I2C_SLAVE_READ_REQUESTED, &value);
+
+		aspeed_i2c_op_push(bus, value);
+		bus->traces.ops[bus->traces.op_idx].len++;
+
 		writel(value, bus->base + ASPEED_I2C_BYTE_BUF_REG);
 		writel(ASPEED_I2CD_S_TX_CMD, bus->base + ASPEED_I2C_CMD_REG);
 		break;
@@ -308,6 +520,10 @@ static u32 aspeed_i2c_slave_irq(struct aspeed_i2c_bus *bus, u32 irq_status)
 		}
 		irq_handled |= ASPEED_I2CD_INTR_TX_ACK;
 		i2c_slave_event(slave, I2C_SLAVE_READ_PROCESSED, &value);
+
+		aspeed_i2c_op_push(bus, value);
+		bus->traces.ops[bus->traces.op_idx].len++;
+
 		writel(value, bus->base + ASPEED_I2C_BYTE_BUF_REG);
 		writel(ASPEED_I2CD_S_TX_CMD, bus->base + ASPEED_I2C_CMD_REG);
 		break;
@@ -353,7 +569,12 @@ static void aspeed_i2c_do_start(struct aspeed_i2c_bus *bus)
 		bus->master_state = ASPEED_I2C_MASTER_PENDING;
 		return;
 	}
+
+	bus->traces.entries[bus->traces.idx].slave_state = bus->slave_state;
 #endif /* CONFIG_I2C_SLAVE */
+
+	bus->traces.entries[bus->traces.idx].master_state = bus->master_state;
+	bus->traces.entries[bus->traces.idx].cur_op_idx = bus->traces.op_idx;
 
 	bus->master_state = ASPEED_I2C_MASTER_START;
 	bus->buf_index = 0;
@@ -363,7 +584,17 @@ static void aspeed_i2c_do_start(struct aspeed_i2c_bus *bus)
 		/* Need to let the hardware know to NACK after RX. */
 		if (msg->len == 1 && !(msg->flags & I2C_M_RECV_LEN))
 			command |= ASPEED_I2CD_M_S_RX_CMD_LAST;
+
+		aspeed_i2c_new_op(bus, ASPEED_I2C_OP_READ, slave_addr, msg->len);
+	} else {
+		aspeed_i2c_new_op(bus, ASPEED_I2C_OP_WRITE, slave_addr, msg->len);
 	}
+
+	bus->traces.entries[bus->traces.idx].time = ktime_get_raw();
+	bus->traces.entries[bus->traces.idx].irqsts = 0;
+	bus->traces.entries[bus->traces.idx].cmd = command;
+	bus->traces.entries[bus->traces.idx].trace_type = ASPEED_I2C_TRACE_START;
+	bus->traces.idx = (bus->traces.idx + 1) % 16;
 
 	writel(slave_addr, bus->base + ASPEED_I2C_BYTE_BUF_REG);
 	writel(command, bus->base + ASPEED_I2C_CMD_REG);
@@ -372,6 +603,17 @@ static void aspeed_i2c_do_start(struct aspeed_i2c_bus *bus)
 /* precondition: bus.lock has been acquired. */
 static void aspeed_i2c_do_stop(struct aspeed_i2c_bus *bus)
 {
+	bus->traces.entries[bus->traces.idx].time = ktime_get_raw();
+	bus->traces.entries[bus->traces.idx].irqsts = 0;
+	bus->traces.entries[bus->traces.idx].cmd = ASPEED_I2CD_M_STOP_CMD;
+	bus->traces.entries[bus->traces.idx].trace_type = ASPEED_I2C_TRACE_STOP;
+	bus->traces.entries[bus->traces.idx].master_state = bus->master_state;
+#if IS_ENABLED(CONFIG_I2C_SLAVE)
+	bus->traces.entries[bus->traces.idx].slave_state = bus->slave_state;
+#endif /* CONFIG_I2C_SLAVE */
+	bus->traces.entries[bus->traces.idx].cur_op_idx = bus->traces.op_idx;
+	bus->traces.idx = (bus->traces.idx + 1) % 16;
+
 	bus->master_state = ASPEED_I2C_MASTER_STOP;
 	writel(ASPEED_I2CD_M_STOP_CMD, bus->base + ASPEED_I2C_CMD_REG);
 }
@@ -406,6 +648,18 @@ static u32 aspeed_i2c_master_irq(struct aspeed_i2c_bus *bus, u32 irq_status)
 	struct i2c_msg *msg;
 	u8 recv_byte;
 	int ret;
+	u8 idx = bus->traces.idx;
+
+	bus->traces.idx = (idx + 1) % 16;
+	bus->traces.entries[idx].time = ktime_get_raw();
+	bus->traces.entries[idx].irqsts = irq_status;
+	bus->traces.entries[idx].cmd = 0;
+	bus->traces.entries[idx].trace_type = ASPEED_I2C_TRACE_MASTER_IRQ;
+	bus->traces.entries[idx].master_state = bus->master_state;
+#if IS_ENABLED(CONFIG_I2C_SLAVE)
+	bus->traces.entries[idx].slave_state = bus->slave_state;
+#endif /* CONFIG_I2C_SLAVE */
+	bus->traces.entries[idx].cur_op_idx = bus->traces.op_idx;
 
 	if (irq_status & ASPEED_I2CD_INTR_BUS_RECOVER_DONE) {
 		bus->master_state = ASPEED_I2C_MASTER_INACTIVE;
@@ -420,6 +674,7 @@ static u32 aspeed_i2c_master_irq(struct aspeed_i2c_bus *bus, u32 irq_status)
 	 */
 	ret = aspeed_i2c_is_irq_error(irq_status);
 	if (ret) {
+		aspeed_i2c_dump_traces(bus);
 		dev_dbg(bus->dev, "received error interrupt: 0x%08x\n",
 			irq_status);
 		irq_handled |= (irq_status & ASPEED_I2CD_INTR_MASTER_ERRORS);
@@ -472,6 +727,7 @@ static u32 aspeed_i2c_master_irq(struct aspeed_i2c_bus *bus, u32 irq_status)
 		}
 #endif /* CONFIG_I2C_SLAVE */
 		if (unlikely(!(irq_status & ASPEED_I2CD_INTR_TX_ACK))) {
+			aspeed_i2c_dump_traces(bus);
 			if (unlikely(!(irq_status & ASPEED_I2CD_INTR_TX_NAK))) {
 				bus->cmd_err = -ENXIO;
 				bus->master_state = ASPEED_I2C_MASTER_INACTIVE;
@@ -508,6 +764,9 @@ static u32 aspeed_i2c_master_irq(struct aspeed_i2c_bus *bus, u32 irq_status)
 		fallthrough;
 	case ASPEED_I2C_MASTER_TX_FIRST:
 		if (bus->buf_index < msg->len) {
+			bus->traces.entries[idx].cmd = ASPEED_I2CD_M_TX_CMD;
+			aspeed_i2c_op_push(bus, msg->buf[bus->buf_index]);
+
 			bus->master_state = ASPEED_I2C_MASTER_TX;
 			writel(msg->buf[bus->buf_index++],
 			       bus->base + ASPEED_I2C_BYTE_BUF_REG);
@@ -541,7 +800,11 @@ static u32 aspeed_i2c_master_irq(struct aspeed_i2c_bus *bus, u32 irq_status)
 			msg->len = recv_byte +
 					((msg->flags & I2C_CLIENT_PEC) ? 2 : 1);
 			msg->flags &= ~I2C_M_RECV_LEN;
+
+			bus->traces.ops[bus->traces.op_idx].len = msg->len;
 		}
+
+		aspeed_i2c_op_push(bus, recv_byte);
 
 		if (bus->buf_index < msg->len) {
 			bus->master_state = ASPEED_I2C_MASTER_RX;
@@ -549,6 +812,8 @@ static u32 aspeed_i2c_master_irq(struct aspeed_i2c_bus *bus, u32 irq_status)
 			if (bus->buf_index + 1 == msg->len)
 				command |= ASPEED_I2CD_M_S_RX_CMD_LAST;
 			writel(command, bus->base + ASPEED_I2C_CMD_REG);
+
+			bus->traces.entries[idx].cmd = command;
 		} else {
 			aspeed_i2c_next_msg_or_stop(bus);
 		}
@@ -895,6 +1160,9 @@ static int aspeed_i2c_init_clk(struct aspeed_i2c_bus *bus)
 	writel(clk_reg_val, bus->base + ASPEED_I2C_AC_TIMING_REG1);
 	writel(ASPEED_NO_TIMEOUT_CTRL, bus->base + ASPEED_I2C_AC_TIMING_REG2);
 
+	bus->traces.timing1 = readl(bus->base + ASPEED_I2C_AC_TIMING_REG1);
+	bus->traces.timing2 = readl(bus->base + ASPEED_I2C_AC_TIMING_REG2);
+
 	return 0;
 }
 
@@ -929,6 +1197,9 @@ static int aspeed_i2c_init(struct aspeed_i2c_bus *bus,
 
 	/* Set interrupt generation of I2C controller */
 	writel(ASPEED_I2CD_INTR_ALL, bus->base + ASPEED_I2C_INTR_CTRL_REG);
+
+	bus->traces.functrl = readl(bus->base + ASPEED_I2C_FUN_CTRL_REG);
+	bus->traces.irqctrl = readl(bus->base + ASPEED_I2C_INTR_CTRL_REG);
 
 	return 0;
 }
@@ -980,6 +1251,8 @@ static int aspeed_i2c_probe_bus(struct platform_device *pdev)
 	bus = devm_kzalloc(&pdev->dev, sizeof(*bus), GFP_KERNEL);
 	if (!bus)
 		return -ENOMEM;
+
+	memset(&bus->traces, 0, sizeof(bus->traces));
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	bus->base = devm_ioremap_resource(&pdev->dev, res);
@@ -1045,6 +1318,8 @@ static int aspeed_i2c_probe_bus(struct platform_device *pdev)
 			       0, dev_name(&pdev->dev), bus);
 	if (ret < 0)
 		return ret;
+
+	bus->traces.op_idx = 7;
 
 	ret = i2c_add_adapter(&bus->adap);
 	if (ret < 0)
