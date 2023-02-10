@@ -1577,6 +1577,8 @@ dtb-$(CONFIG_ARCH_MSTARV7) += \
 	mstar-infinity3-msc313e-breadbee.dtb \
 	mstar-mercury5-ssc8336n-midrived08.dtb
 dtb-$(CONFIG_ARCH_ASPEED) += \
+	aspeed-apollo.dtb \
+	aspeed-apolloX.dtb \
 	aspeed-ast2500-evb.dtb \
 	aspeed-ast2600-evb-a1.dtb \
 	aspeed-ast2600-evb.dtb \
@@ -1636,4 +1638,5 @@ dtb-$(CONFIG_ARCH_ASPEED) += \
 	aspeed-bmc-tyan-s8036.dtb \
 	aspeed-bmc-vegman-n110.dtb \
 	aspeed-bmc-vegman-rx20.dtb \
-	aspeed-bmc-vegman-sx20.dtb
+	aspeed-bmc-vegman-sx20.dtb \
+	aspeed-needletail.dtb
