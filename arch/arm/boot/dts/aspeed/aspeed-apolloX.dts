@@ -1,0 +1,1015 @@
+// SPDX-License-Identifier: GPL-2.0+
+/dts-v1/;
+#include "aspeed-g5.dtsi"
+#include <dt-bindings/gpio/aspeed-gpio.h>
+#include <dt-bindings/leds/leds-pca955x.h>
+
+/ {
+	model = "Witherspoon BMC";
+	compatible = "ibm,witherspoon-bmc", "aspeed,ast2500";
+
+	aliases {
+		i2c90 = &c0_pca9548_71_c0;
+		i2c91 = &c0_pca9548_71_c1;
+		i2c92 = &c0_pca9548_71_c2;
+		i2c93 = &c0_pca9548_71_c3;
+		i2c94 = &c0_pca9548_71_c4;
+		i2c95 = &c0_pca9548_71_c5;
+		i2c96 = &c0_pca9548_71_c6;
+		i2c97 = &c0_pca9548_71_c7;
+
+		i2c100 = &c1_pca9548_71_c0;
+		i2c101 = &c1_pca9548_71_c1;
+		i2c102 = &c1_pca9548_71_c2;
+		i2c103 = &c1_pca9548_71_c3;
+		i2c104 = &c1_pca9548_71_c4;
+		i2c105 = &c1_pca9548_71_c5;
+		i2c106 = &c1_pca9548_71_c6;
+		i2c107 = &c1_pca9548_71_c7;
+
+		i2c110 = &c2_pca9548_71_c0;
+		i2c111 = &c2_pca9548_71_c1;
+		i2c112 = &c2_pca9548_71_c2;
+		i2c113 = &c2_pca9548_71_c3;
+		i2c114 = &c2_pca9548_71_c4;
+		i2c115 = &c2_pca9548_71_c5;
+		i2c116 = &c2_pca9548_71_c6;
+		i2c117 = &c2_pca9548_71_c7;
+
+		i2c120 = &c3_pca9548_71_c0;
+		i2c121 = &c3_pca9548_71_c1;
+		i2c122 = &c3_pca9548_71_c2;
+		i2c123 = &c3_pca9548_71_c3;
+		i2c124 = &c3_pca9548_71_c4;
+		i2c125 = &c3_pca9548_71_c5;
+		i2c126 = &c3_pca9548_71_c6;
+		i2c127 = &c3_pca9548_71_c7;
+
+		scom90 = &scom90;
+		scom91 = &scom91;
+		scom92 = &scom92;
+		scom93 = &scom93;
+		scom100 = &scom100;
+		scom101 = &scom101;
+		scom102 = &scom102;
+		scom103 = &scom103;
+		scom110 = &scom110;
+		scom111 = &scom111;
+		scom112 = &scom112;
+		scom113 = &scom113;
+		scom120 = &scom120;
+		scom121 = &scom121;
+		scom122 = &scom122;
+		scom123 = &scom123;
+
+		sbefifo90 = &sbefifo90;
+		sbefifo91 = &sbefifo91;
+		sbefifo92 = &sbefifo92;
+		sbefifo93 = &sbefifo93;
+		sbefifo100 = &sbefifo100;
+		sbefifo101 = &sbefifo101;
+		sbefifo102 = &sbefifo102;
+		sbefifo103 = &sbefifo103;
+		sbefifo110 = &sbefifo110;
+		sbefifo111 = &sbefifo111;
+		sbefifo112 = &sbefifo112;
+		sbefifo113 = &sbefifo113;
+		sbefifo120 = &sbefifo120;
+		sbefifo121 = &sbefifo121;
+		sbefifo122 = &sbefifo122;
+		sbefifo123 = &sbefifo123;
+	};
+
+	chosen {
+		stdout-path = &uart5;
+		bootargs = "console=ttyS4,115200 earlycon";
+	};
+
+	memory@80000000 {
+		reg = <0x80000000 0x20000000>;
+	};
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		flash_memory: region@98000000 {
+			no-map;
+			reg = <0x98000000 0x04000000>; /* 64M */
+		};
+
+		vga_memory: region@9f000000 {
+			no-map;
+			compatible = "shared-dma-pool";
+			reg = <0x9f000000 0x01000000>; /* 16M */
+		};
+
+		gfx_memory: framebuffer {
+			size = <0x01000000>;
+			alignment = <0x01000000>;
+			compatible = "shared-dma-pool";
+			reusable;
+		};
+
+		video_engine_memory: jpegbuffer {
+			size = <0x02000000>;	/* 32MM */
+			alignment = <0x01000000>;
+			compatible = "shared-dma-pool";
+			reusable;
+		};
+	};
+
+	iio-hwmon-battery {
+		compatible = "iio-hwmon";
+		io-channels = <&adc 12>;
+	};
+
+	iio-hwmon-dps310 {
+		compatible = "iio-hwmon";
+		io-channels = <&dps 0>;
+	};
+
+	iio-hwmon-bmp280 {
+		compatible = "iio-hwmon";
+		io-channels = <&bmp 1>;
+	};
+
+};
+
+&gpio {
+	gpio-line-names =
+	/*A0-A7*/	"","cfam-reset","","","","","fsi-mux","",
+	/*B0-B7*/	"","","","","","air-water","","",
+	/*C0-C7*/	"","","","","","","","",
+	/*D0-D7*/	"fsi-enable","","","","","","","",
+	/*E0-E7*/	"fsi-data","","","","","","","",
+	/*F0-F7*/	"","","","","","","","",
+	/*G0-G7*/	"","","","","","","","",
+	/*H0-H7*/	"","","","","","","","",
+	/*I0-I7*/	"","","","","","","","",
+	/*J0-J7*/	"","","checkstop","","","","","",
+	/*K0-K7*/	"","","","","","","","",
+	/*L0-L7*/	"","","","","","","","",
+	/*M0-M7*/	"","","","","","","","",
+	/*N0-N7*/	"presence-ps1","","led-rear-fault","led-rear-power",
+		        "led-rear-id","","","",
+	/*O0-O7*/	"","","","","","","","",
+	/*P0-P7*/	"","","","","","","","presence-ps0",
+	/*Q0-Q7*/	"","","","","","","","",
+	/*R0-R7*/	"","","fsi-trans","","","power-button","","",
+	/*S0-S7*/	"","","","","","","","",
+	/*T0-T7*/	"","","","","","","","",
+	/*U0-U7*/	"","","","","","","","",
+	/*V0-V7*/	"","","","","","","","",
+	/*W0-W7*/	"","","","","","","","",
+	/*X0-X7*/	"","","","","","","","",
+	/*Y0-Y7*/	"","","","","","","","",
+	/*Z0-Z7*/	"","","","","","","","",
+	/*AA0-AA7*/	"fsi-clock","","","","","","","",
+	/*AB0-AB7*/	"","","","","","","","",
+	/*AC0-AC7*/	"","","","","","","","";
+};
+
+&fmc {
+	status = "okay";
+
+	flash@0 {
+		status = "okay";
+		label = "bmc";
+		m25p,fast-read;
+		spi-max-frequency = <50000000>;
+
+		partitions {
+			#address-cells = < 1 >;
+			#size-cells = < 1 >;
+			compatible = "fixed-partitions";
+			u-boot@0 {
+				reg = < 0 0x60000 >;
+				label = "u-boot";
+			};
+			u-boot-env@60000 {
+				reg = < 0x60000 0x20000 >;
+				label = "u-boot-env";
+			};
+			obmc-ubi@80000 {
+				reg = < 0x80000 0x1F80000 >;
+				label = "obmc-ubi";
+			};
+		};
+	};
+
+	flash@1 {
+		status = "okay";
+		label = "alt-bmc";
+		m25p,fast-read;
+		spi-max-frequency = <50000000>;
+
+		partitions {
+			#address-cells = < 1 >;
+			#size-cells = < 1 >;
+			compatible = "fixed-partitions";
+			u-boot@0 {
+				reg = < 0 0x60000 >;
+				label = "alt-u-boot";
+			};
+			u-boot-env@60000 {
+				reg = < 0x60000 0x20000 >;
+				label = "alt-u-boot-env";
+			};
+			obmc-ubi@80000 {
+				reg = < 0x80000 0x1F80000 >;
+				label = "alt-obmc-ubi";
+			};
+		};
+	};
+};
+
+&spi1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_spi1_default>;
+
+	flash@0 {
+		status = "okay";
+		label = "pnor";
+		m25p,fast-read;
+		spi-max-frequency = <100000000>;
+	};
+};
+
+&uart1 {
+	/* Rear RS-232 connector */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_txd1_default
+			&pinctrl_rxd1_default
+			&pinctrl_nrts1_default
+			&pinctrl_ndtr1_default
+			&pinctrl_ndsr1_default
+			&pinctrl_ncts1_default
+			&pinctrl_ndcd1_default
+			&pinctrl_nri1_default>;
+};
+
+&uart2 {
+	/* APSS */
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_txd2_default &pinctrl_rxd2_default>;
+};
+
+&uart5 {
+	status = "okay";
+};
+
+&lpc_ctrl {
+	status = "okay";
+	memory-region = <&flash_memory>;
+	flash = <&spi1>;
+};
+
+&mac0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_rmii1_default>;
+	clocks = <&syscon ASPEED_CLK_GATE_MAC1CLK>,
+		 <&syscon ASPEED_CLK_MAC1RCLK>;
+	clock-names = "MACCLK", "RCLK";
+	use-ncsi;
+};
+
+&i2c2 {
+	status = "okay";
+};
+
+&i2c3 {
+	status = "okay";
+
+	bmp: bmp280@77 {
+		compatible = "bosch,bmp280";
+		reg = <0x77>;
+		#io-channel-cells = <1>;
+	};
+
+	dps: dps310@76 {
+		compatible = "infineon,dps310";
+		reg = <0x76>;
+		#io-channel-cells = <0>;
+	};
+};
+
+&i2c4 {
+	status = "okay";
+
+	tmp423a@4c {
+		compatible = "ti,tmp423";
+		reg = <0x4c>;
+	};
+
+	ir35221@70 {
+		compatible = "infineon,ir35221";
+		reg = <0x70>;
+	};
+
+	ir35221@71 {
+		compatible = "infineon,ir35221";
+		reg = <0x71>;
+	};
+};
+
+
+&i2c5 {
+	status = "okay";
+
+	tmp423a@4c {
+		compatible = "ti,tmp423";
+		reg = <0x4c>;
+	};
+
+	ir35221@70 {
+		compatible = "infineon,ir35221";
+		reg = <0x70>;
+	};
+
+	ir35221@71 {
+		compatible = "infineon,ir35221";
+		reg = <0x71>;
+	};
+};
+
+&i2c8 {
+	status = "okay";
+};
+
+&i2c9 {
+	status = "okay";
+
+	c0_pca9548_71: mux@71 {
+		compatible = "nxp,pca9548";
+		reg = <0x71>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-mux-idle-disconnect;
+
+		c0_pca9548_71_c0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom90: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo90: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c0_pca9548_71_c1: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom91: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo91: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c0_pca9548_71_c2: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom92: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo92: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c0_pca9548_71_c3: i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom93: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo93: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c0_pca9548_71_c4: i2c@4 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <4>;
+		};
+		c0_pca9548_71_c5: i2c@5 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <5>;
+		};
+		c0_pca9548_71_c6: i2c@6 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <6>;
+		};
+		c0_pca9548_71_c7: i2c@7 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <7>;
+		};
+	};
+
+	tmp275@4a {
+		compatible = "ti,tmp275";
+		reg = <0x4a>;
+	};
+};
+
+&i2c10 {
+	status = "okay";
+
+	c1_pca9548_71: mux@71 {
+		compatible = "nxp,pca9548";
+		reg = <0x71>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-mux-idle-disconnect;
+
+		c1_pca9548_71_c0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom100: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo100: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c1_pca9548_71_c1: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom101: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo101: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c1_pca9548_71_c2: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom102: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo102: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c1_pca9548_71_c3: i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom103: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo103: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c1_pca9548_71_c4: i2c@4 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <4>;
+		};
+		c1_pca9548_71_c5: i2c@5 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <5>;
+		};
+		c1_pca9548_71_c6: i2c@6 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <6>;
+		};
+		c1_pca9548_71_c7: i2c@7 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <7>;
+		};
+	};
+};
+
+&i2c11 {
+	status = "okay";
+
+	c2_pca9548_71: mux@71 {
+		compatible = "nxp,pca9548";
+		reg = <0x71>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-mux-idle-disconnect;
+
+		c2_pca9548_71_c0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom110: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo110: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c2_pca9548_71_c1: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom111: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo111: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c2_pca9548_71_c2: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom112: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo112: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c2_pca9548_71_c3: i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom113: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo113: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c2_pca9548_71_c4: i2c@4 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <4>;
+		};
+		c2_pca9548_71_c5: i2c@5 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <5>;
+		};
+		c2_pca9548_71_c6: i2c@6 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <6>;
+		};
+		c2_pca9548_71_c7: i2c@7 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <7>;
+		};
+	};
+};
+
+&i2c12 {
+	status = "okay";
+
+	c3_pca9548_71: mux@71 {
+		compatible = "nxp,pca9548";
+		reg = <0x71>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-mux-idle-disconnect;
+
+		c3_pca9548_71_c0: i2c@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom120: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo120: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c3_pca9548_71_c1: i2c@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom121: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo121: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c3_pca9548_71_c2: i2c@2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom122: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo122: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c3_pca9548_71_c3: i2c@3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <3>;
+
+			i2cr@20 {
+				compatible = "ibm,i2cr-fsi-master";
+				reg = <0x20>;
+				#address-cells = <2>;
+				#size-cells = <0>;
+
+				cfam@0,0 {
+					reg = <0 0>;
+					#address-cells = <1>;
+					#size-cells = <1>;
+					chip-id = <0>;
+
+					scom123: scom@1000 {
+						compatible = "ibm,i2cr-scom";
+						reg = <0x1000 0x400>;
+					};
+
+					sbefifo123: sbefifo@2400 {
+						compatible = "ibm,p9-sbefifo";
+						reg = <0x2400 0x400>;
+						#address-cells = <1>;
+						#size-cells = <0>;
+					};
+				};
+			};
+		};
+		c3_pca9548_71_c4: i2c@4 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <4>;
+		};
+		c3_pca9548_71_c5: i2c@5 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <5>;
+		};
+		c3_pca9548_71_c6: i2c@6 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <6>;
+		};
+		c3_pca9548_71_c7: i2c@7 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <7>;
+		};
+	};
+};
+
+&i2c13 {
+	status = "okay";
+};
+
+&vuart {
+	status = "okay";
+};
+
+&gfx {
+	status = "okay";
+	memory-region = <&gfx_memory>;
+};
+
+&pinctrl {
+	aspeed,external-nodes = <&gfx &lhc>;
+};
+
+&wdt1 {
+	aspeed,reset-type = "none";
+	aspeed,external-signal;
+	aspeed,ext-push-pull;
+	aspeed,ext-active-high;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_wdtrst1_default>;
+};
+
+&wdt2 {
+	aspeed,alt-boot;
+};
+
+&ibt {
+	status = "okay";
+};
+
+&adc {
+	status = "okay";
+};

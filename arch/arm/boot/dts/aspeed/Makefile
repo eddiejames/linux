@@ -3,6 +3,8 @@ dtb-$(CONFIG_ARCH_ASPEED) += \
 	aspeed-ast2500-evb.dtb \
 	aspeed-ast2600-evb-a1.dtb \
 	aspeed-ast2600-evb.dtb \
+	aspeed-apollo.dtb \
+	aspeed-apolloX.dtb \
 	aspeed-bmc-amd-daytonax.dtb \
 	aspeed-bmc-amd-ethanolx.dtb \
 	aspeed-bmc-ampere-mtjade.dtb \
@@ -68,4 +70,5 @@ dtb-$(CONFIG_ARCH_ASPEED) += \
 	aspeed-bmc-ufispace-ncplite.dtb \
 	aspeed-bmc-vegman-n110.dtb \
 	aspeed-bmc-vegman-rx20.dtb \
-	aspeed-bmc-vegman-sx20.dtb
+	aspeed-bmc-vegman-sx20.dtb \
+	aspeed-needletail.dtb
